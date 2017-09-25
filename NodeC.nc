@@ -32,8 +32,8 @@ implementation {
     Node.CommandHandler -> CommandHandlerC;
 	
 
-	components new ListC(pack, 64) as PacketListC;
-	Node.PacketList -> PacketListC;
+	components new ListC(pack, 64) as MarkedPacketsC;
+	Node.MarkedPackets -> MarkedPacketsC;
 
 
 }
