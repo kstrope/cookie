@@ -16,6 +16,7 @@ configuration NodeC{
 implementation {
     components MainC;
     components Node;
+    components new TimerMilliC() as PeriodicTimerC;
     components new AMReceiverC(AM_PACK) as GeneralReceive;
 
     Node -> MainC.Boot;
@@ -32,8 +33,14 @@ implementation {
     Node.CommandHandler -> CommandHandlerC;
 	
 
-	components new ListC(pack, 64) as MarkedPacketsC;
-	Node.MarkedPackets -> MarkedPacketsC;
+    components new ListC(pack, 64) as MarkedPacketsC;
+    Node.MarkedPackets -> MarkedPacketsC;
 
+    components new ListC(neighbor*, 64) as NeighborsC;
+    Node.Neighbors -> NeighborsC;
 
+    components RandomC as Random;
+    Node.Random -> Random;
+
+    Node.PeriodicTimer -> PeriodicTimerC;
 }

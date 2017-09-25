@@ -18,9 +18,12 @@ module Node{
    
    //list of packets to determine if a node has seen or sent this packet before
    uses interface List<pack> as MarkedPackets;
-
-
-
+   //timer to use to fire packets
+   uses interface Timer<TMilli> as PeriodicTimer;
+   //random number used for timer to make sure it's spaced
+   uses interface Random as Random;
+   //list of neighboring nodes as seen by current node
+   uses interface List<neighbor*> as Neighbors;
    uses interface SplitControl as AMControl;
    uses interface Receive;
 
@@ -41,9 +44,17 @@ implementation{
    bool findPack(pack *Package);
 
    event void Boot.booted(){
+      uint32_t initial;
+      uint32_t change;
       call AMControl.start();
-
       dbg(GENERAL_CHANNEL, "Booted\n");
+      //create an initial time to start firing from between 0-999 milliseconds
+      initial = call Random.rand32() % 1000;
+      //change is the interval to fire between each fire from 10000-25000 milliseconds
+      change = 10000 + (call Random.rand32() % 15000);
+      //start the timer
+      call PeriodicTimer.startPeriodicAt(initial, change);
+      dbg(GENERAL_CHANNEL, "Timer started at %d, firing interval %d\n", initial, change);
    }
 
    event void AMControl.startDone(error_t err){
@@ -54,6 +65,11 @@ implementation{
          call AMControl.start();
       }
    }
+
+   event void PeriodicTimer.fired() {
+	
+   }
+
 
    event void AMControl.stopDone(error_t err){}
 
