@@ -52,8 +52,6 @@ implementation{
    bool findPack(pack *Package);
    //access neighbor list
    void accessNeighbors();
-   //prints out the list of neighbors for view
-   void returnNeighbors();
 
    event void Boot.booted(){
       uint32_t initial;
@@ -86,7 +84,7 @@ implementation{
    event void AMControl.stopDone(error_t err){}
 
 	event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len){
-		dbg(FLOODING_CHANNEL, "Packet Received\n");
+		//dbg(FLOODING_CHANNEL, "Packet Received\n");
 		if(len==sizeof(pack)){
 			//creates a message with the payload, or message, of the recieved packet
 			pack* myMsg=(pack*) payload;
@@ -104,7 +102,7 @@ implementation{
 				//if the packet is sent to ping for neighbors
 				if (myMsg->protocol == PROTOCOL_PING){
 					//send a packet that expects replies for neighbors
-					dbg(NEIGHBOR_CHANNEL, "Packet sent from %d to check for neighbors\n", myMsg->src);
+					//dbg(NEIGHBOR_CHANNEL, "Packet sent from %d to check for neighbors\n", myMsg->src);
 					makePack(&sendPackage, TOS_NODE_ID, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_PINGREPLY, myMsg->seq, (uint8_t *) myMsg->payload, PACKET_MAX_PAYLOAD_SIZE);
 					pushPack(sendPackage);
 					call Sender.send(sendPackage, myMsg->src);
@@ -112,13 +110,13 @@ implementation{
 				//if the packet is sent to ping for replies
 				else if (myMsg->protocol == PROTOCOL_PINGREPLY){
 					//update ping number, search and see if the neighbor was found
-					dbg(NEIGHBOR_CHANNEL, "Packet recieved from %d, replying\n", myMsg->src);
+					//dbg(NEIGHBOR_CHANNEL, "Packet recieved from %d, replying\n", myMsg->src);
 					length = call Neighbors.size();
 					found = FALSE;
 					for (i = 0; i < length; i++){
 						Neighbor2 = call Neighbors.get(i);
 						if (Neighbor2.Node == myMsg->src) {
-							dbg(NEIGHBOR_CHANNEL, "Node found, adding %d to list\n", myMsg->src);
+							//dbg(NEIGHBOR_CHANNEL, "Node found, adding %d to list\n", myMsg->src);
 							//reset the ping number if found to keep it from being dropped
 							Neighbor2.pingNumber = 0;
 							found = TRUE;
@@ -143,15 +141,11 @@ implementation{
 					}
 					else {
 						//not in list, so we're going to add it
-						dbg(NEIGHBOR_CHANNEL, "%d not found, put in list\n", myMsg->src);
+						//dbg(NEIGHBOR_CHANNEL, "%d not found, put in list\n", myMsg->src);
 						Neighbor1.Node = myMsg->src;
 						Neighbor1.pingNumber = 0;
 						call Neighbors.pushback(Neighbor1);
 					}
-				}
-				//print out the neighbors on update
-				else {
-					returnNeighbors();
 				}
 			} 
  			//else, check to see if the packet reached it's destination and see what the purpose/protocal of the packet was 
@@ -174,7 +168,6 @@ implementation{
 			else {
 				//all else, wrong destination, flood the packet
 				makePack(&sendPackage, myMsg->src, myMsg->dest, myMsg->TTL-1, myMsg->protocol, myMsg->seq, (uint8_t *)myMsg->payload, PACKET_MAX_PAYLOAD_SIZE);
-				dbg(FLOODING_CHANNEL, "Recieved packet from %d, meant for %d, TTL is %d. Rebroadcasting\n", myMsg->src, myMsg->dest, myMsg->TTL);
 				pushPack(sendPackage);
 				call Sender.send(sendPackage, AM_BROADCAST_ADDR);
 			}
@@ -182,7 +175,7 @@ implementation{
 		}
 		else {
 		//all else, we dunno what the packet was to do
-		dbg(GENERAL_CHANNEL, "Unknown Packet Type %d\n", len);
+		dbg(GENERAL_CHANNEL, "Unknown Packet Use, Error with: %d\n", len);
 		return msg;
 		}
 	}
@@ -194,7 +187,20 @@ implementation{
       call Sender.send(sendPackage, AM_BROADCAST_ADDR);
    }
 
-   event void CommandHandler.printNeighbors(){}
+   event void CommandHandler.printNeighbors(){
+	uint16_t i = 0;
+	uint16_t length = call Neighbors.size();
+	Neighbor beingPrinted;
+	if (length == 0){
+		dbg(NEIGHBOR_CHANNEL, "No neighbors exist\n");	
+	}
+	else {
+		for (i = 0; i < length; i++){
+			beingPrinted = call Neighbors.get(i);
+			dbg(NEIGHBOR_CHANNEL, "Neighbor at %d\n", beingPrinted.Node, i);
+			}
+	}
+   }
 
    event void CommandHandler.printRouteTable(){}
 
@@ -224,7 +230,7 @@ implementation{
 	pack Pack;
 	//test message to be sent
 	char* message;
-	dbg(NEIGHBOR_CHANNEL, "Neighbors accessed, %d is checking.\n", TOS_NODE_ID);
+	//dbg(NEIGHBOR_CHANNEL, "Neighbors accessed, %d is checking.\n", TOS_NODE_ID);
 	//check to see if neighbors have been found at all
 	if (!(call Neighbors.isEmpty())) {
 		uint16_t length = call Neighbors.size();
@@ -274,21 +280,5 @@ implementation{
 			}
 		}
 		return FALSE;
-	}
-
-	void returnNeighbors() {
-		uint16_t i = 0;
-		uint16_t length = call Neighbors.size();
-		Neighbor beingPrinted;
-		if (length == 0){
-			dbg(NEIGHBOR_CHANNEL, "No Neighbors.\n");
-		}
-		else {
-			for (i = 0; i < length; i++){
-				//print out neighbors when called
-				beingPrinted = call Neighbors.get(i);
-				dbg(NEIGHBOR_CHANNEL, "Neighbor at %d\n", beingPrinted.Node, i);
-			}
-		}
 	}
 }
