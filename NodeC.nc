@@ -36,10 +36,10 @@ implementation {
     components new ListC(pack, 64) as MarkedPacketsC;
     Node.MarkedPackets -> MarkedPacketsC;
 
-    components new ListC(Neighbor*, 64) as NeighborsC;
+    components new ListC(Neighbor, 64) as NeighborsC;
     Node.Neighbors -> NeighborsC;
     
-    components new ListC(Neighbor*, 64) as NeighborsDroppedC;
+    components new ListC(Neighbor, 64) as NeighborsDroppedC;
     Node.NeighborsDropped -> NeighborsDroppedC;
 
 

@@ -29,9 +29,9 @@ module Node{
    //random number used for timer to make sure it's spaced
    uses interface Random as Random;
    //list of neighboring nodes as seen by current node
-   uses interface List<Neighbor *> as Neighbors;
+   uses interface List<Neighbor> as Neighbors;
    //list of removed nodes from the neighbor list
-   uses interface List<Neighbor *> as NeighborsDropped;
+   uses interface List<Neighbor> as NeighborsDropped;
    uses interface SplitControl as AMControl;
    uses interface Receive;
 
@@ -52,6 +52,8 @@ implementation{
    bool findPack(pack *Package);
    //access neighbor list
    void accessNeighbors();
+   //prints out the list of neighbors for view
+   void returnNeighbors();
 
    event void Boot.booted(){
       uint32_t initial;
@@ -95,9 +97,10 @@ implementation{
 			//else, check to see if the packet is checking for neighbors, deal with it seperately
 			else if(myMsg->dest == AM_BROADCAST_ADDR) {
 				bool found;
+				bool match;
 				uint16_t length;
 				uint16_t i = 0;
-				Neighbor* Neighbor1, *Neighbor2;
+				Neighbor Neighbor1,Neighbor2,NeighborCheck;
 				//if the packet is sent to ping for neighbors
 				if (myMsg->protocol == PROTOCOL_PING){
 					//send a packet that expects replies for neighbors
@@ -114,10 +117,10 @@ implementation{
 					found = FALSE;
 					for (i = 0; i < length; i++){
 						Neighbor2 = call Neighbors.get(i);
-						if (Neighbor2->Node == myMsg->src) {
+						if (Neighbor2.Node == myMsg->src) {
 							dbg(NEIGHBOR_CHANNEL, "Node found, adding %d to list\n", myMsg->src);
 							//reset the ping number if found to keep it from being dropped
-							Neighbor2->pingNumber = 0;
+							Neighbor2.pingNumber = 0;
 							found = TRUE;
 						}
 					}
@@ -125,24 +128,30 @@ implementation{
 				//if we didn't find a match
 				if (!found){
 					//add it to the list, using the memory of a previous dropped node
-					dbg(NEIGHBOR_CHANNEL, "%d not found, put in list, Neighbors size is %d\n", myMsg->src, call Neighbors.size());
-					if (call NeighborsDropped.isEmpty()){
-						dbg(NEIGHBOR_CHANNEL, "ping!\n");
-						Neighbor1 = call NeighborsDropped.popfront();
-						dbg(NEIGHBOR_CHANNEL, "ping2!\n");
-						Neighbor1->Node = myMsg->src;
-						dbg(NEIGHBOR_CHANNEL, "ping3!\n");
-						Neighbor1->pingNumber = 0;
-						dbg(NEIGHBOR_CHANNEL, "ping4!\n");
-						call Neighbors.pushback(Neighbor1);
-						dbg(NEIGHBOR_CHANNEL, "ping5!\n");
+
+					Neighbor1 = call NeighborsDropped.get(0);
+					//check to see if already in list
+					length = call Neighbors.size();
+					for (i = 0; i < length; i++){
+						NeighborCheck = call Neighbors.get(i);
+						if (myMsg->src == NeighborCheck.Node){
+							match = TRUE;
+						}
+					}
+					if (match == TRUE) {
+						//already in the list, no need to repeat
 					}
 					else {
-						Neighbor1 = call NeighborsDropped.popfront();
-						Neighbor1->Node = myMsg->src;
-						Neighbor1->pingNumber = 0;
+						//not in list, so we're going to add it
+						dbg(NEIGHBOR_CHANNEL, "%d not found, put in list\n", myMsg->src);
+						Neighbor1.Node = myMsg->src;
+						Neighbor1.pingNumber = 0;
 						call Neighbors.pushback(Neighbor1);
 					}
+				}
+				//print out the neighbors on update
+				else {
+					returnNeighbors();
 				}
 			} 
  			//else, check to see if the packet reached it's destination and see what the purpose/protocal of the packet was 
@@ -220,17 +229,17 @@ implementation{
 	if (!(call Neighbors.isEmpty())) {
 		uint16_t length = call Neighbors.size();
 		uint16_t pings = 0;
-		Neighbor* NeighborNode;
+		Neighbor NeighborNode;
 		uint16_t i = 0;
-		Neighbor* temp; 
+		Neighbor temp; 
 		//increase the number of pings in the neighbors in the list. if the ping number is greater than 3, drop the neighbor
 		for (i = 0; i < length; i++){
 			temp = call Neighbors.get(i);
-			temp->pingNumber++;
-			pings = temp->pingNumber;
+			temp.pingNumber++;
+			pings = temp.pingNumber;
 			if (pings > 3){
 				NeighborNode = call Neighbors.removeFromList(i);
-				dbg(NEIGHBOR_CHANNEL, "Node %d dropped due to more than 3 pings\n", NeighborNode->Node);
+				dbg(NEIGHBOR_CHANNEL, "Node %d dropped due to more than 3 pings\n", NeighborNode.Node);
 				call NeighborsDropped.pushfront(NeighborNode);
 				i--;
 				length--;
@@ -238,7 +247,7 @@ implementation{
 		}					
 	}
 	//ping the list of Neighbors
-	message = "ping!\n";
+	message = "pinged neighbors!\n";
 	makePack(&Pack, TOS_NODE_ID, AM_BROADCAST_ADDR, 2, PROTOCOL_PING, 1, (uint8_t*) message, (uint8_t) sizeof(message));
 	//add the packet to the packet list
 	pushPack(Pack);
@@ -265,5 +274,21 @@ implementation{
 			}
 		}
 		return FALSE;
+	}
+
+	void returnNeighbors() {
+		uint16_t i = 0;
+		uint16_t length = call Neighbors.size();
+		Neighbor beingPrinted;
+		if (length == 0){
+			dbg(NEIGHBOR_CHANNEL, "No Neighbors.\n");
+		}
+		else {
+			for (i = 0; i < length; i++){
+				//print out neighbors when called
+				beingPrinted = call Neighbors.get(i);
+				dbg(NEIGHBOR_CHANNEL, "Neighbor at %d\n", beingPrinted.Node, i);
+			}
+		}
 	}
 }
