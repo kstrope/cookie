@@ -42,6 +42,9 @@ implementation {
     components new ListC(Neighbor, 64) as NeighborsDroppedC;
     Node.NeighborsDropped -> NeighborsDroppedC;
 
+    components new ListC(LinkState, 64) as RoutingTableC;
+    Node.RoutingTable -> RoutingTableC;
+
 
     components RandomC as Random;
     Node.Random -> Random;

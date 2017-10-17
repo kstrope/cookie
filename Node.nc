@@ -19,6 +19,13 @@ typedef nx_struct Neighbor {
    nx_uint16_t pingNumber;
 }Neighbor;
 
+typedef nx_struct LinkState {
+   nx_uint16_t Dest;
+   nx_uint16_t Cost;
+   nx_uint16_t Next;
+   nx_uint16_t Seq;
+}LinkState;
+
 module Node{
    uses interface Boot;
    
@@ -32,6 +39,10 @@ module Node{
    uses interface List<Neighbor> as Neighbors;
    //list of removed nodes from the neighbor list
    uses interface List<Neighbor> as NeighborsDropped;
+   //list of nodes and their costs 
+   uses interface List<Neighbor> as NeighborCosts;
+   //routing table to be used by nodes
+   uses interface List<LinkState> as RoutingTable;
    uses interface SplitControl as AMControl;
    uses interface Receive;
 
@@ -43,7 +54,8 @@ module Node{
 
 implementation{
    pack sendPackage;
-	uint16_t seqCounter = 0;
+   uint16_t seqCounter = 0;
+   uint16_t accessCounter = 0;
    // Prototypes
    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t Protocol, uint16_t seq, uint8_t *payload, uint8_t length);
    //puts a packet into the list at the top
@@ -52,6 +64,8 @@ implementation{
    bool findPack(pack *Package);
    //access neighbor list
    void accessNeighbors();
+   //starts to flood the LSP packet
+   void floodLSP();
 
    event void Boot.booted(){
       uint32_t initial;
@@ -77,7 +91,9 @@ implementation{
    }
 
    event void PeriodicTimer.fired() {
-	accessNeighbors();	
+	accessNeighbors();
+	if (accessCounter > 1 && accessCounter < 3)
+		floodLSP();	
    }
 
 
@@ -115,6 +131,7 @@ implementation{
 					found = FALSE;
 					for (i = 0; i < length; i++){
 						Neighbor2 = call Neighbors.get(i);
+						dbg(GENERAL_CHANNEL, "Pings at %d = %d\n", Neighbor2.Node, Neighbor2.pingNumber);
 						if (Neighbor2.Node == myMsg->src) {
 							//dbg(NEIGHBOR_CHANNEL, "Node found, adding %d to list\n", myMsg->src);
 							//reset the ping number if found to keep it from being dropped
@@ -122,6 +139,10 @@ implementation{
 							found = TRUE;
 						}
 					}
+				}
+				//if the packet is sent to find other nodes
+				else if (myMsg->protocol == PROTOCOL_LINKSTATE) {
+					
 				}
 				//if we didn't find a match
 				if (!found){
@@ -230,6 +251,8 @@ implementation{
 	pack Pack;
 	//test message to be sent
 	char* message;
+	//increase the access counter
+	accessCounter++;
 	//dbg(NEIGHBOR_CHANNEL, "Neighbors accessed, %d is checking.\n", TOS_NODE_ID);
 	//check to see if neighbors have been found at all
 	if (!(call Neighbors.isEmpty())) {
@@ -280,5 +303,31 @@ implementation{
 			}
 		}
 		return FALSE;
+	}
+	
+	void floodLSP(){
+		//run to flood LSPs, sending info of this node's direct neighbors
+		pack LSP;
+		//check to see if there are neighbors to at all
+		if (!call Neighbors.isEmpty()){
+			uint16_t i = 0;
+			uint16_t length = call Neighbors.size();
+			uint16_t directNeighbors[length+1];
+			Neighbor temp;
+
+			//move the neighbors into the array
+			for (i = 0; i < length; i++) {
+				temp = call Neighbors.get(i);
+				directNeighbors[i] = temp.Node;
+			}
+			
+			//set a negative number to tell future loops to stop!
+			directNeighbors[length] = -1;
+			
+			//start flooding the packet
+			makePack(&LSP, TOS_NODE_ID, AM_BROADCAST_ADDR, MAX_TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t*)directNeighbors, (uint8_t) sizeof(directNeighbors));
+			pushPack(LSP);
+			call Sender.send(LSP, AM_BROADCAST_ADDR);
+		}
 	}
 }
