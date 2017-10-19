@@ -202,23 +202,23 @@ implementation{
 						//dbg(ROUTING_CHANNEL, "Table for %d: \n", TOS_NODE_ID);
 						j = 0;
 						call RoutingTable.pushfront(LSP);
-						for (j = 0; j < call RoutingTable.size(); j++)
+						/*for (j = 0; j < call RoutingTable.size(); j++)
 						{
-							printLSP();
+							//printLSP();
 							k = 0;
 							temp = call RoutingTable.get(j);
 							//dbg(ROUTING_CHANNEL, "table size: %d\n", call RoutingTable.size());
 							//dbg(ROUTING_CHANNEL, "[k] = %d\n", temp.Neighbors[k]);
 							for (k = 0; k < temp.NeighborsLength; k++)
 							{
-								if((temp.Dest == LSP.Dest) && (temp.Cost >= LSP.Cost))
+								if((temp.Dest == LSP.Dest) && (temp.Seq <= LSP.Seq))
 								{
 									call RoutingTable.removeFromList(j);
 								}
-								//if(TOS_NODE_ID == 4)
-									//dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
 							}
-						}
+							//printLSP();
+						}*/
+						printLSP();
 						seqCounter++;
 						makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
 						pushPack(sendPackage);
@@ -341,11 +341,9 @@ implementation{
 		for(i=0; i < call RoutingTable.size(); i++)
 		{
 			temp = call RoutingTable.get(i);
-			for(j=0; j < temp.NeighborsLength; j++)
-			{
-				dbg(GENERAL_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[j], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
-			}
+			dbg(GENERAL_CHANNEL, "LSP from %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
 		}
+		dbg(GENERAL_CHANNEL, "size is %d\n", call RoutingTable.size());
 	}
 
 
