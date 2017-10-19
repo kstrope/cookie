@@ -102,10 +102,10 @@ implementation{
 
    event void PeriodicTimer.fired() {
 	accessNeighbors();
-	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 6){
+	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 22){
 		floodLSP();
+		printLSP();
 	}
-	printLSP();
    }
 
 
@@ -158,6 +158,7 @@ implementation{
 					//store the LSP in a list of structs
 					LinkState LSP;
 					LinkState temp;
+					Neighbor Ntemp;
 					bool end;
 					uint16_t j;
 					uint16_t k;
@@ -169,7 +170,6 @@ implementation{
 					k = 0;
 					arr = myMsg->payload;
 					LSP.Dest = myMsg->src;
-					LSP.Cost = MAX_TTL - myMsg->TTL;
 					LSP.Next = 0;
 					LSP.Seq = myMsg->seq;
 					while (end){
@@ -195,6 +195,7 @@ implementation{
 						i = i+1;
 						//dbg(ROUTING_CHANNEL, "i after: %d\n", i);
 					}
+					LSP.Cost = MAX_TTL - myMsg->TTL;
 					if (same == FALSE)
 					{
 						LSP.NeighborsLength = count;
@@ -203,18 +204,19 @@ implementation{
 						call RoutingTable.pushfront(LSP);
 						for (j = 0; j < call RoutingTable.size(); j++)
 						{
+							printLSP();
 							k = 0;
 							temp = call RoutingTable.get(j);
 							//dbg(ROUTING_CHANNEL, "table size: %d\n", call RoutingTable.size());
 							//dbg(ROUTING_CHANNEL, "[k] = %d\n", temp.Neighbors[k]);
 							for (k = 0; k < temp.NeighborsLength; k++)
 							{
-								if((temp.Dest == LSP.Dest) && (temp.Seq >= LSP.Seq))
+								if((temp.Dest == LSP.Dest) && (temp.Cost >= LSP.Cost))
 								{
 									call RoutingTable.removeFromList(j);
 								}
-								if(TOS_NODE_ID == 4)
-									dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
+								//if(TOS_NODE_ID == 4)
+									//dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
 							}
 						}
 						seqCounter++;
@@ -341,7 +343,7 @@ implementation{
 			temp = call RoutingTable.get(i);
 			for(j=0; j < temp.NeighborsLength; j++)
 			{
-				dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[j], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
+				dbg(GENERAL_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[j], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
 			}
 		}
 	}
