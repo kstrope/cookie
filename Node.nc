@@ -45,6 +45,10 @@ module Node{
    uses interface List<Neighbor> as NeighborCosts;
    //routing table to be used by nodes
    uses interface List<LinkState> as RoutingTable;
+   //confirmed table for algo
+   uses interface List<LinkState> as Confirmed;
+   //tentative table for algo
+   uses interface List<LinkState> as Tentative;
    uses interface SplitControl as AMControl;
    uses interface Receive;
 
@@ -69,6 +73,8 @@ implementation{
    void accessNeighbors();
    //starts to flood the LSP packet
    void floodLSP();
+   //runs dijkstra's algorithm for shortest path
+   void algorithm();
 
    event void Boot.booted(){
       uint32_t initial;
@@ -95,8 +101,8 @@ implementation{
 
    event void PeriodicTimer.fired() {
 	accessNeighbors();
-	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 6)
-		floodLSP();	
+	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 21)
+		floodLSP();
    }
 
 
@@ -160,7 +166,7 @@ implementation{
 					arr = myMsg->payload;
 					LSP.Dest = myMsg->src;
 					LSP.Cost = MAX_TTL - myMsg->TTL;
-					LSP.Next = TOS_NODE_ID;
+					LSP.Next = 0;
 					LSP.Seq = myMsg->seq;
 					while (end){
 						if (arr[i] < 1) {
@@ -193,9 +199,12 @@ implementation{
 							//dbg(ROUTING_CHANNEL, "table size: %d\n", call RoutingTable.size());
 							//dbg(ROUTING_CHANNEL, "[k] = %d\n", temp.Neighbors[k]);
 							for (k = 0; k < count; k++){
-							dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
+							if (TOS_NODE_ID == 2) {
+								dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
+								}
 							}
 						}
+					//seqCounter++;
 					makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, myMsg->seq, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
 					pushPack(sendPackage);
 					call Sender.send(sendPackage, AM_BROADCAST_ADDR);
@@ -393,4 +402,67 @@ implementation{
 			call Sender.send(LSP, AM_BROADCAST_ADDR);
 		}
 	}
-}
+
+/*	void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next) {
+*		//find the shortest paths
+*		//start confirmed with the node itself
+*		LinkState temp;
+*		LinkState temp2;
+*		LinkState temp3;
+*		LinkState temp4;
+*		uint16_t* NeighborsArr;
+*		uint16_t* NeighborsNeighborsArr;
+*		uint16_t i;
+*		uint16_t j;
+*		uint16_t k;
+*		bool onTentList;
+*		bool onConList;
+*		onTentList = FALSE;
+*		onConList = FALSE;
+*		temp.Dest = Dest;
+*		temp.Cost = Cost;
+*		temp.Next = Next;
+*		call Confirmed.pushfront(temp);
+*		temp2 = call RoutingTable.get(Dest);
+*		while(!end){
+*			//insert all of the direct LSP's from last insert
+*			for (i = 0; i < temp2.NeighborsLength; i++){
+*				NeighborsArr[i] = temp2.Neighbors[i];
+*			}
+*			for (i = 0; i < temp2.NeighborsLength; i++){
+*				onTentList = FALSE;
+*				onConList = FALSE;
+*				temp3 = call RoutingTable(NeighborsArr[i]);
+*				if (!call Tentative.isEmpty()) {
+*					for (j = 0; j < call Tentative.size(); j++){
+*						temp4 = call Tentative.get(j);
+*						if (temp3.Dest == temp4.Dest) {
+*							onTentList = TRUE;
+*							k = j;
+*							}
+*						}
+*				}
+*				if (!call Confirmed.isEmpty()) {
+*					for (j = 0; j < call Confirmed.size(); j++){
+*						temp4 = call Confirmed.get(j);
+*						if (temp3.Dest == temp4.Dest) {
+*							onConList = TRUE;
+*							k = j;
+*						}
+*				}
+*				if (!onTentList && !onConList) {
+*					temp3.Next = NeighborsArr[i];
+*				}
+*				else if (onTentList) {
+*					temp4 = call Tentative.get(k);
+*					if (temp3.Cost < temp4.Cost) {
+*						temp4.Cost = temp3.Cost;
+*						temp.Next = NeighborsArr[k];
+*						
+*					}
+*				}
+*				call Tentative.pushfront(temp3);
+*			}
+*		}
+*	}
+*/ }
