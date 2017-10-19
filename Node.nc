@@ -149,49 +149,57 @@ implementation{
 					LinkState LSP;
 					LinkState temp;
 					bool end;
-					bool end2;
 					uint16_t j;
 					uint16_t k;
+					uint16_t* arr;
+					bool same = FALSE;
 					uint16_t count = 0;
 					end = TRUE;
-					end2 = TRUE;
 					i = 0;
+					k = 0;
+					arr = myMsg->payload;
 					LSP.Dest = myMsg->src;
 					LSP.Cost = MAX_TTL - myMsg->TTL;
-					LSP.Next = myMsg->src;
+					LSP.Next = TOS_NODE_ID;
 					LSP.Seq = myMsg->seq;
 					while (end){
-						if (myMsg->payload[i] < 1) {
+						if (arr[i] < 1) {
 							LSP.Neighbors[i] = 0;
 							end = FALSE;
 							break;
 						}
-						//else if (
-						else {
-							LSP.Neighbors[i] = myMsg->payload[i];
-							count++;
-							dbg(ROUTING_CHANNEL, "Recieved info on %d, has neighbor %d with cost %d, next is %d\n", LSP.Dest, LSP.Neighbors[i], LSP.Cost, LSP.Next);
-						}
-						i++;
-					}
-					LSP.NeighborsLength = count;
-					call RoutingTable.pushback(LSP);
-					//dbg(ROUTING_CHANNEL, "Table for %d: \n", TOS_NODE_ID);
-					j = 0;
-					k = 0;
-					while (end2){
-						temp = call RoutingTable.get(j);
-						if (temp.Neighbors[k] < 1) {
-							end2 = FALSE;
+						else if (myMsg->src == TOS_NODE_ID){
+							//drop packet, since we don't want the LSP from itself
+							same = TRUE;
 							break;
 						}
-						//dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq);
-						j++;
-						k++;
+						else {
+							//dbg(ROUTING_CHANNEL, "i before: %d\n", i);
+							LSP.Neighbors[i] = arr[i];
+							count++;
+							//dbg(ROUTING_CHANNEL, "Recieved info on %d, has neighbor %d with cost %d, next is %d\n", LSP.Dest, LSP.Neighbors[i], LSP.Cost, LSP.Next);
+						}
+						i = i+1;
+						//dbg(ROUTING_CHANNEL, "i after: %d\n", i);
 					}
+					if (same == FALSE) {
+						LSP.NeighborsLength = count;
+						call RoutingTable.pushfront(LSP);
+						//dbg(ROUTING_CHANNEL, "Table for %d: \n", TOS_NODE_ID);
+						j = 0;
+						for (j = 0; j < call RoutingTable.size(); j++) {
+							k = 0;
+							temp = call RoutingTable.get(j);
+							//dbg(ROUTING_CHANNEL, "table size: %d\n", call RoutingTable.size());
+							//dbg(ROUTING_CHANNEL, "[k] = %d\n", temp.Neighbors[k]);
+							for (k = 0; k < count; k++){
+							dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
+							}
+						}
 					makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, myMsg->seq, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
 					pushPack(sendPackage);
 					call Sender.send(sendPackage, AM_BROADCAST_ADDR);
+					}
 				}
 				//if we didn't find a match
 				if (!found && myMsg->protocol != PROTOCOL_LINKSTATE){
@@ -367,6 +375,7 @@ implementation{
 			uint16_t length = call Neighbors.size();
 			uint16_t directNeighbors[length+1];
 			Neighbor temp;
+			//dbg(ROUTING_CHANNEL, "length = %d/n", length);
 
 			//move the neighbors into the array
 			for (i = 0; i < length; i++) {
@@ -379,7 +388,7 @@ implementation{
 			//dbg(ROUTING_CHANNEL, "this should be 0: %d\n", directNeighbors[length]);
 			
 			//start flooding the packet
-			makePack(&LSP, TOS_NODE_ID, AM_BROADCAST_ADDR, MAX_TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t*)directNeighbors, (uint8_t) sizeof(directNeighbors));
+			makePack(&LSP, TOS_NODE_ID, AM_BROADCAST_ADDR, MAX_TTL-1, PROTOCOL_LINKSTATE, seqCounter++, (uint8_t*)directNeighbors, (uint8_t) sizeof(directNeighbors));
 			pushPack(LSP);
 			call Sender.send(LSP, AM_BROADCAST_ADDR);
 		}
