@@ -75,6 +75,7 @@ implementation{
    void floodLSP();
    //runs dijkstra's algorithm for shortest path
    void algorithm();
+   void printLSP();
 
    event void Boot.booted(){
       uint32_t initial;
@@ -101,8 +102,10 @@ implementation{
 
    event void PeriodicTimer.fired() {
 	accessNeighbors();
-	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 21)
+	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 6){
 		floodLSP();
+	}
+	printLSP();
    }
 
 
@@ -110,7 +113,8 @@ implementation{
 
 	event message_t* Receive.receive(message_t* msg, void* payload, uint8_t len){
 		//dbg(FLOODING_CHANNEL, "Packet Received\n");
-		if(len==sizeof(pack)){
+		if(len==sizeof(pack))
+		{
 			//creates a message with the payload, or message, of the recieved packet
 			pack* myMsg=(pack*) payload;
 			//check to see if this packet needs to be dropped, either through checking to see if the TTL expired, or if it was listed in the list of sent or seen packets
@@ -169,17 +173,20 @@ implementation{
 					LSP.Next = 0;
 					LSP.Seq = myMsg->seq;
 					while (end){
-						if (arr[i] < 1) {
+						if (arr[i] < 1)
+						{
 							LSP.Neighbors[i] = 0;
 							end = FALSE;
 							break;
 						}
-						else if (myMsg->src == TOS_NODE_ID){
+						else if (myMsg->src == TOS_NODE_ID)
+						{
 							//drop packet, since we don't want the LSP from itself
 							same = TRUE;
 							break;
 						}
-						else {
+						else
+						{
 							//dbg(ROUTING_CHANNEL, "i before: %d\n", i);
 							LSP.Neighbors[i] = arr[i];
 							count++;
@@ -188,45 +195,55 @@ implementation{
 						i = i+1;
 						//dbg(ROUTING_CHANNEL, "i after: %d\n", i);
 					}
-					if (same == FALSE) {
+					if (same == FALSE)
+					{
 						LSP.NeighborsLength = count;
-						call RoutingTable.pushfront(LSP);
 						//dbg(ROUTING_CHANNEL, "Table for %d: \n", TOS_NODE_ID);
 						j = 0;
-						for (j = 0; j < call RoutingTable.size(); j++) {
+						call RoutingTable.pushfront(LSP);
+						for (j = 0; j < call RoutingTable.size(); j++)
+						{
 							k = 0;
 							temp = call RoutingTable.get(j);
 							//dbg(ROUTING_CHANNEL, "table size: %d\n", call RoutingTable.size());
 							//dbg(ROUTING_CHANNEL, "[k] = %d\n", temp.Neighbors[k]);
-							for (k = 0; k < count; k++){
-							if (TOS_NODE_ID == 2) {
-								dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
+							for (k = 0; k < temp.NeighborsLength; k++)
+							{
+								if((temp.Dest == LSP.Dest) && (temp.Seq >= LSP.Seq))
+								{
+									call RoutingTable.removeFromList(j);
 								}
+								if(TOS_NODE_ID == 4)
+									dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
 							}
 						}
-					//seqCounter++;
-					makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, myMsg->seq, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
-					pushPack(sendPackage);
-					call Sender.send(sendPackage, AM_BROADCAST_ADDR);
+						seqCounter++;
+						makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
+						pushPack(sendPackage);
+						call Sender.send(sendPackage, AM_BROADCAST_ADDR);
 					}
 				}
 				//if we didn't find a match
-				if (!found && myMsg->protocol != PROTOCOL_LINKSTATE){
+				if (!found && myMsg->protocol != PROTOCOL_LINKSTATE)
+				{
 					//add it to the list, using the memory of a previous dropped node
-
 					Neighbor1 = call NeighborsDropped.get(0);
 					//check to see if already in list
 					length = call Neighbors.size();
-					for (i = 0; i < length; i++){
+					for (i = 0; i < length; i++)
+					{
 						NeighborCheck = call Neighbors.get(i);
-						if (myMsg->src == NeighborCheck.Node){
+						if (myMsg->src == NeighborCheck.Node)
+						{
 							match = TRUE;
 						}
 					}
-					if (match == TRUE) {
+					if (match == TRUE)
+					{
 						//already in the list, no need to repeat
 					}
-					else {
+					else
+					{
 						//not in list, so we're going to add it
 						//dbg(NEIGHBOR_CHANNEL, "%d not found, put in list\n", myMsg->src);
 						LinkState temp;
@@ -262,7 +279,8 @@ implementation{
 			}
 			return msg;
 		}
-		else {
+		else
+		{
 		//all else, we dunno what the packet was to do
 		dbg(GENERAL_CHANNEL, "Unknown Packet Use, Error with: %d\n", len);
 		return msg;
@@ -313,6 +331,23 @@ implementation{
       Package->protocol = protocol;
       memcpy(Package->payload, payload, length);
    }
+
+	void printLSP()
+	{
+		LinkState temp;
+		uint16_t i, j;
+		for(i=0; i < call RoutingTable.size(); i++)
+		{
+			temp = call RoutingTable.get(i);
+			for(j=0; j < temp.NeighborsLength; j++)
+			{
+				dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Neighbors[j], temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
+			}
+		}
+	}
+
+
+
 
    void accessNeighbors() {
 	//make a packet to send to check neighbors
