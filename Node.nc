@@ -24,6 +24,8 @@ typedef nx_struct LinkState {
    nx_uint16_t Cost;
    nx_uint16_t Next;
    nx_uint16_t Seq;
+   nx_uint8_t Neighbors[64];
+   nx_uint16_t NeighborsLength;
 }LinkState;
 
 module Node{
@@ -56,6 +58,7 @@ implementation{
    pack sendPackage;
    uint16_t seqCounter = 0;
    uint16_t accessCounter = 0;
+   uint32_t difference = 0;
    // Prototypes
    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t Protocol, uint16_t seq, uint8_t *payload, uint8_t length);
    //puts a packet into the list at the top
@@ -78,7 +81,7 @@ implementation{
       change = 10000 + (call Random.rand32() % 15000);
       //start the timer
       call PeriodicTimer.startPeriodicAt(initial, change);
-      dbg(GENERAL_CHANNEL, "Timer started at %d, firing interval %d\n", initial, change);
+      //dbg(GENERAL_CHANNEL, "Timer started at %d, firing interval %d\n", initial, change);
    }
 
    event void AMControl.startDone(error_t err){
@@ -92,7 +95,7 @@ implementation{
 
    event void PeriodicTimer.fired() {
 	accessNeighbors();
-	if (accessCounter > 1 && accessCounter < 3)
+	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 6)
 		floodLSP();	
    }
 
@@ -124,14 +127,14 @@ implementation{
 					call Sender.send(sendPackage, myMsg->src);
 				}
 				//if the packet is sent to ping for replies
-				else if (myMsg->protocol == PROTOCOL_PINGREPLY){
+				else if (myMsg->protocol == PROTOCOL_PINGREPLY){ 
 					//update ping number, search and see if the neighbor was found
 					//dbg(NEIGHBOR_CHANNEL, "Packet recieved from %d, replying\n", myMsg->src);
 					length = call Neighbors.size();
 					found = FALSE;
 					for (i = 0; i < length; i++){
 						Neighbor2 = call Neighbors.get(i);
-						dbg(GENERAL_CHANNEL, "Pings at %d = %d\n", Neighbor2.Node, Neighbor2.pingNumber);
+						//dbg(GENERAL_CHANNEL, "Pings at %d = %d\n", Neighbor2.Node, Neighbor2.pingNumber);
 						if (Neighbor2.Node == myMsg->src) {
 							//dbg(NEIGHBOR_CHANNEL, "Node found, adding %d to list\n", myMsg->src);
 							//reset the ping number if found to keep it from being dropped
@@ -142,10 +145,56 @@ implementation{
 				}
 				//if the packet is sent to find other nodes
 				else if (myMsg->protocol == PROTOCOL_LINKSTATE) {
-					
+					//store the LSP in a list of structs
+					LinkState LSP;
+					LinkState temp;
+					bool end;
+					bool end2;
+					uint16_t j;
+					uint16_t k;
+					uint16_t count = 0;
+					end = TRUE;
+					end2 = TRUE;
+					i = 0;
+					LSP.Dest = myMsg->src;
+					LSP.Cost = MAX_TTL - myMsg->TTL;
+					LSP.Next = myMsg->src;
+					LSP.Seq = myMsg->seq;
+					while (end){
+						if (myMsg->payload[i] < 1) {
+							LSP.Neighbors[i] = 0;
+							end = FALSE;
+							break;
+						}
+						//else if (
+						else {
+							LSP.Neighbors[i] = myMsg->payload[i];
+							count++;
+							dbg(ROUTING_CHANNEL, "Recieved info on %d, has neighbor %d with cost %d, next is %d\n", LSP.Dest, LSP.Neighbors[i], LSP.Cost, LSP.Next);
+						}
+						i++;
+					}
+					LSP.NeighborsLength = count;
+					call RoutingTable.pushback(LSP);
+					//dbg(ROUTING_CHANNEL, "Table for %d: \n", TOS_NODE_ID);
+					j = 0;
+					k = 0;
+					while (end2){
+						temp = call RoutingTable.get(j);
+						if (temp.Neighbors[k] < 1) {
+							end2 = FALSE;
+							break;
+						}
+						//dbg(ROUTING_CHANNEL, "LSP from %d has Neighbor: %d, Cost: %d, Next: %d, Seq: %d\n", temp.Dest, temp.Neighbors[k], temp.Cost, temp.Next, temp.Seq);
+						j++;
+						k++;
+					}
+					makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, myMsg->seq, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
+					pushPack(sendPackage);
+					call Sender.send(sendPackage, AM_BROADCAST_ADDR);
 				}
 				//if we didn't find a match
-				if (!found){
+				if (!found && myMsg->protocol != PROTOCOL_LINKSTATE){
 					//add it to the list, using the memory of a previous dropped node
 
 					Neighbor1 = call NeighborsDropped.get(0);
@@ -163,9 +212,11 @@ implementation{
 					else {
 						//not in list, so we're going to add it
 						//dbg(NEIGHBOR_CHANNEL, "%d not found, put in list\n", myMsg->src);
+						LinkState temp;
 						Neighbor1.Node = myMsg->src;
 						Neighbor1.pingNumber = 0;
 						call Neighbors.pushback(Neighbor1);
+						
 					}
 				}
 			} 
@@ -264,8 +315,9 @@ implementation{
 		//increase the number of pings in the neighbors in the list. if the ping number is greater than 3, drop the neighbor
 		for (i = 0; i < length; i++){
 			temp = call Neighbors.get(i);
-			temp.pingNumber++;
+			temp.pingNumber = temp.pingNumber + 1;
 			pings = temp.pingNumber;
+			//dbg(ROUTING_CHANNEL, "Pings at %d: %d\n", temp.Node, pings);
 			if (pings > 3){
 				NeighborNode = call Neighbors.removeFromList(i);
 				dbg(NEIGHBOR_CHANNEL, "Node %d dropped due to more than 3 pings\n", NeighborNode.Node);
@@ -308,6 +360,7 @@ implementation{
 	void floodLSP(){
 		//run to flood LSPs, sending info of this node's direct neighbors
 		pack LSP;
+		//dbg(ROUTING_CHANNEL, "LSP Initial Flood from %d\n", TOS_NODE_ID);
 		//check to see if there are neighbors to at all
 		if (!call Neighbors.isEmpty()){
 			uint16_t i = 0;
@@ -322,7 +375,8 @@ implementation{
 			}
 			
 			//set a negative number to tell future loops to stop!
-			directNeighbors[length] = -1;
+			directNeighbors[length] = 0;
+			//dbg(ROUTING_CHANNEL, "this should be 0: %d\n", directNeighbors[length]);
 			
 			//start flooding the packet
 			makePack(&LSP, TOS_NODE_ID, AM_BROADCAST_ADDR, MAX_TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t*)directNeighbors, (uint8_t) sizeof(directNeighbors));

@@ -136,19 +136,19 @@ def main():
     s.addChannel(s.NEIGHBOR_CHANNEL);
     s.addChannel(s.ROUTING_CHANNEL);
 
-    s.runTime(20);
+    s.runTime(75);
     s.ping(1, 2, "Hello, World");
-    s.runTime(10);
+    s.runTime(75);
     s.ping(1, 19, "Hi!");
-    s.runTime(10);
+    s.runTime(75);
     s.neighborDMP(1);
-    s.runTime(10);
+    s.runTime(75);
     s.neighborDMP(5);
-    s.runTime(10);
+    s.runTime(75);
     s.neighborDMP(12);
-    s.runTime(10);
+    s.runTime(75);
     s.neighborDMP(19);
-    s.runTime(20);
+    s.runTime(75);
 
 if __name__ == '__main__':
     main()

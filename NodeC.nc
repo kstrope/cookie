@@ -45,7 +45,6 @@ implementation {
     components new ListC(LinkState, 64) as RoutingTableC;
     Node.RoutingTable -> RoutingTableC;
 
-
     components RandomC as Random;
     Node.Random -> Random;
 
