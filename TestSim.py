@@ -155,6 +155,10 @@ def main():
     s.runTime(50);
     s.routeDMP(9);
     s.runTime(50);
+    s.ping(3,9, "Hello, World");
+    s.runTime(75);
+    s.ping(6,2, "Hi!");
+    s.runTime(50);
 
 
 if __name__ == '__main__':
