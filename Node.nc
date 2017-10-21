@@ -64,6 +64,7 @@ implementation{
    uint16_t seqCounter = 0;
    uint16_t accessCounter = 0;
    uint32_t difference = 0;
+   uint16_t algopush = 0;
    // Prototypes
    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t Protocol, uint16_t seq, uint8_t *payload, uint8_t length);
    //puts a packet into the list at the top
@@ -77,7 +78,7 @@ implementation{
    //runs dijkstra's algorithm for shortest path
    //void algorithm();
    void findNext();
-   void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next);
+   void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next, uint8_t * Nbors);
 
    void printLSP();
 
@@ -106,13 +107,13 @@ implementation{
 
    event void PeriodicTimer.fired() {
 	accessNeighbors();
-	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 16){
+	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 10){
 		floodLSP();
 		//printLSP();
 		//findNext();
 	}
-	if (accessCounter > 1 && accessCounter % 10 == 0 && accessCounter < 31)
-		algorithm(TOS_NODE_ID, 0, 0);
+	if (accessCounter > 1 && accessCounter % 20 == 0 && accessCounter < 21)
+		algorithm(TOS_NODE_ID, 0, 0, 0);
    }
 
 
@@ -245,9 +246,11 @@ implementation{
 						//if(good == TRUE)
 						//{
 							call RoutingTable.pushfront(LSP);
+							//algorithm(TOS_NODE_ID, 0, 0, 0);
+
 						//}
 						//findNext();
-						printLSP();
+						//printLSP();
 						seqCounter++;
 						makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
 						pushPack(sendPackage);
@@ -471,91 +474,46 @@ implementation{
 		}
 	}
 
-	void findNext()
-	{
-		uint16_t i,j,k,CC;
-		uint16_t tablesize,tentsize;
-		LinkState LSP, LSP2;
-		bool popped = FALSE;
-		tablesize = call RoutingTable.size();
-		tentsize = call Tentative.size();
-		//adds all LSPs on routing table to Tentative based on cost
-		i=0;
-		while (tentsize != tablesize)
-		{
-			LSP = call RoutingTable.get(i);
-			
-		}
-		//checking each of tentative
-		i=0;
-		while(!call Tentative.isEmpty())
-		{
-			k=0;
-			LSP = call Tentative.get(i);
-			LSP2 = call Tentative.get(k);
-			CC = LSP.Cost;
-			popped = FALSE;
-			//check to see if neighbors is TOS_NODE_ID
-			for(j = 0; j < LSP.NeighborsLength; j++)
-			{
-				if(LSP.Neighbors[j] == TOS_NODE_ID)
-				{
-					LSP.Next = LSP.Dest;
-					call Confirmed.pushfront(LSP);
-					call Tentative.popfront();
-					popped = TRUE;
-					break;
-				}
-			}
-			if(popped = FALSE)
-			{
-				for(j=0; j<LSP.NeighborsLength; j++)
-				{
-					while(LSP2.Dest != LSP.Neighbors[j] && k < tablesize)
-					{
-						k++;
-						LSP2 = call Tentative.get(k);
-					}
-					
-				}
-			}
-		}
-	}
-
-	void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next, uint8_t* Neighbors) {
+	void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next, uint8_t* Nbors) {
 		LinkState temp;
 		Neighbor temp2;
 		LinkState temp3;
 		LinkState temp4;
 		LinkState temp5;
+		LinkState temp6;
 		LinkState minTemp;
-		uint16_t i,j,k,minCost,minInt;
+		uint16_t i,j,k,l,minCost,minInt;
 		uint16_t tentInt;
-		uint16_t* NeighborsArr;
+		uint8_t NeighborsArr[64];
 		bool inTentList;
 		bool inConList;
 		temp.Dest = Dest;
 		temp.Cost = Cost;
 		temp.Next = Next;
-		call Confirmed.pushfront(temp);
-
+		if(algopush == 0 || (temp.Dest != TOS_NODE_ID))
+		{
+			call Confirmed.pushfront(temp);
+			algopush++;
+		}
 
 		if (temp.Dest != TOS_NODE_ID) {
 			dbg(ROUTING_CHANNEL, "bleh %d\n", 1);
 			for(i=0; i<call RoutingTable.size(); i++)
 			{
 			dbg(ROUTING_CHANNEL, "bleh %d\n", 2);
-				temp = call RoutingTable.get(i);
-				if(temp.Dest == Dest)
+				temp6 = call RoutingTable.get(i);
+				if(temp6.Dest == Dest)
 				{
 					dbg(ROUTING_CHANNEL, "bleh %d\n", 3);
 					break;
 				}
 			}
-			for (i = 0; i < temp.NeighborsLength; i++) {
-				dbg(ROUTING_CHANNEL, "bleh %d, NeighborsLength: %d\n", 4, temp.NeighborsLength);
-				NeighborsArr[i] = temp.Neighbors[i];
-			} 
+			for (i = 0; i < temp6.NeighborsLength; i++) {
+				dbg(ROUTING_CHANNEL, "bleh %d, NeighborsLength: %d\n", 4, temp6.NeighborsLength);
+				NeighborsArr[i] = temp6.Neighbors[i];
+				//NeighborsArr = Nbors;
+			}
+			temp = temp6; 
 		}
 		
 		for (i = 0; i < temp.NeighborsLength; i++){
@@ -593,7 +551,6 @@ implementation{
 							}
 						}
 					}
-
 					dbg(ROUTING_CHANNEL, "debug %d\n", 8);
 					if (!inTentList && !inConList) {
 					dbg(ROUTING_CHANNEL, "debug %d\n", 9);
@@ -608,32 +565,31 @@ implementation{
 							call Tentative.pushfront(temp3); 
 						}
 					}
-
 				}
 				//dbg(ROUTING_CHANNEL, "debug %d\n", 12);
 				else if (temp.Dest != TOS_NODE_ID) {
 					dbg(ROUTING_CHANNEL, "debug %d\n", 13);
 					for (k = 0; k < temp.NeighborsLength; k++) { 
 						if (NeighborsArr[k] == temp3.Dest) {
-					dbg(ROUTING_CHANNEL, "debug %d\n", 14);
+						dbg(ROUTING_CHANNEL, "debug %d; dest %d, neighborslength %d\n", 14, temp.Dest, temp.NeighborsLength);
 							temp3.Next = temp2.Node;
 							if (!call Tentative.isEmpty()) {
 								dbg(ROUTING_CHANNEL, "debug %d\n", 15);
-								for (k = 0; k < call Tentative.size(); k++) {
+								for (l = 0; l < call Tentative.size(); l++) {
 									dbg(ROUTING_CHANNEL, "debug %d\n", 16);
-									temp4 = call Tentative.get(k);
+									temp4 = call Tentative.get(l);
 									if (temp4.Dest == temp3.Dest) {
 										dbg(ROUTING_CHANNEL, "debug %d\n", 17);
 										inTentList = TRUE;
-										tentInt = k;
+										tentInt = l;
 									}
 								}
 							}
 							if (!call Confirmed.isEmpty()) {
 								dbg(ROUTING_CHANNEL, "debug %d\n", 18);
-								for (k = 0; k < call Confirmed.size(); k++) {
+								for (l = 0; l < call Confirmed.size(); l++) {
 									dbg(ROUTING_CHANNEL, "debug %d\n", 19);
-									temp4 = call Confirmed.get(k);
+									temp4 = call Confirmed.get(l);
 									if (temp4.Dest == temp3.Dest) {
 										dbg(ROUTING_CHANNEL, "debug %d\n", 20);
 										inConList = TRUE;
@@ -656,29 +612,34 @@ implementation{
 						}
 					}	
 				}
-				if (call Tentative.isEmpty()) {
+				if (call Tentative.isEmpty() && (TOS_NODE_ID == 2)) {
 					dbg(ROUTING_CHANNEL, "Table for %d\n", TOS_NODE_ID);
-					for (i = 0; i < call Confirmed.size(); i++) {
-						temp5 = call Confirmed.get(i);
+					for (k = 0; k < call Confirmed.size(); k++) {
+						temp5 = call Confirmed.get(k);
 						dbg(ROUTING_CHANNEL, "Dest: %d, Cost: %d, Next: %d\n", temp5.Dest, temp5.Cost, temp5.Next);
 					}
+				//	break;
+				}
+				else if(call Tentative.isEmpty())
+				{
+				//	break;
 				}
 				else {
 					minCost = 65535;
-					for (i = 0; i < call Tentative.size(); i++) {
+					for (k = 0; k < call Tentative.size(); k++) {
 						dbg(ROUTING_CHANNEL, "2debug %d\n", 1);
-						minTemp = call Tentative.get(i);
+						minTemp = call Tentative.get(k);
 						if (minTemp.Cost < minCost) {
 						dbg(ROUTING_CHANNEL, "2debug %d\n", 2);
 							minCost = minTemp.Cost;
-							minInt = i;
+							minInt = k;
 						} 
 					}
 					minTemp = call Tentative.get(minInt);
 					dbg(ROUTING_CHANNEL, "2debug %d\n", 3);
 					call Tentative.removeFromList(minInt);
 					dbg(ROUTING_CHANNEL, "2debug %d\n", 4);
-					algorithm(minTemp.Dest, minTemp.Cost, minTemp.Next);
+					algorithm(minTemp.Dest, minTemp.Cost, minTemp.Next, (uint8_t*) minTemp.Neighbors);
 				}
 			}
 		}		
