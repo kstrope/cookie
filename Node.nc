@@ -522,7 +522,7 @@ implementation{
 		}
 	}
 
-	void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next) {
+	void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next, uint8_t* Neighbors) {
 		LinkState temp;
 		Neighbor temp2;
 		LinkState temp3;
@@ -541,16 +541,19 @@ implementation{
 
 
 		if (temp.Dest != TOS_NODE_ID) {
-			//How do we know that that index of get is exactly what number we need? Do you need to search before getting to it?
+			dbg(ROUTING_CHANNEL, "bleh %d\n", 1);
 			for(i=0; i<call RoutingTable.size(); i++)
 			{
+			dbg(ROUTING_CHANNEL, "bleh %d\n", 2);
 				temp = call RoutingTable.get(i);
 				if(temp.Dest == Dest)
 				{
+					dbg(ROUTING_CHANNEL, "bleh %d\n", 3);
 					break;
 				}
 			}
 			for (i = 0; i < temp.NeighborsLength; i++) {
+				dbg(ROUTING_CHANNEL, "bleh %d, NeighborsLength: %d\n", 4, temp.NeighborsLength);
 				NeighborsArr[i] = temp.Neighbors[i];
 			} 
 		}
@@ -607,8 +610,7 @@ implementation{
 					}
 
 				}
-				dbg(ROUTING_CHANNEL, "debug %d\n", 12);
-				//Much like above, how can we be sure that NeighborsArr[j] is the right index we need?
+				//dbg(ROUTING_CHANNEL, "debug %d\n", 12);
 				else if (temp.Dest != TOS_NODE_ID) {
 					dbg(ROUTING_CHANNEL, "debug %d\n", 13);
 					for (k = 0; k < temp.NeighborsLength; k++) { 
@@ -662,18 +664,23 @@ implementation{
 					}
 				}
 				else {
-					minCost = 65536;
+					minCost = 65535;
 					for (i = 0; i < call Tentative.size(); i++) {
+						dbg(ROUTING_CHANNEL, "2debug %d\n", 1);
 						minTemp = call Tentative.get(i);
 						if (minTemp.Cost < minCost) {
+						dbg(ROUTING_CHANNEL, "2debug %d\n", 2);
 							minCost = minTemp.Cost;
 							minInt = i;
 						} 
 					}
 					minTemp = call Tentative.get(minInt);
+					dbg(ROUTING_CHANNEL, "2debug %d\n", 3);
 					call Tentative.removeFromList(minInt);
+					dbg(ROUTING_CHANNEL, "2debug %d\n", 4);
 					algorithm(minTemp.Dest, minTemp.Cost, minTemp.Next);
 				}
 			}
 		}		
 	}
+}
