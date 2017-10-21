@@ -24,6 +24,7 @@ typedef nx_struct LinkState {
    nx_uint16_t Cost;
    nx_uint16_t Next;
    nx_uint16_t Seq;
+   //nx_uint16_t from;
    nx_uint8_t Neighbors[64];
    nx_uint16_t NeighborsLength;
 }LinkState;
@@ -74,7 +75,10 @@ implementation{
    //starts to flood the LSP packet
    void floodLSP();
    //runs dijkstra's algorithm for shortest path
-   void algorithm();
+   //void algorithm();
+   void findNext();
+   void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next);
+
    void printLSP();
 
    event void Boot.booted(){
@@ -102,9 +106,10 @@ implementation{
 
    event void PeriodicTimer.fired() {
 	accessNeighbors();
-	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 22){
+	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 6){
 		floodLSP();
-		printLSP();
+		//printLSP();
+		//findNext();
 	}
    }
 
@@ -118,7 +123,7 @@ implementation{
 			//creates a message with the payload, or message, of the recieved packet
 			pack* myMsg=(pack*) payload;
 			//check to see if this packet needs to be dropped, either through checking to see if the TTL expired, or if it was listed in the list of sent or seen packets
-			if((myMsg->TTL == 0) || findPack(myMsg)){
+			if((myMsg->TTL <= 0) || findPack(myMsg)){
 				//drops packet by doing nothing and not sending out a new packet
 			}
 			//else, check to see if the packet is checking for neighbors, deal with it seperately
@@ -159,70 +164,66 @@ implementation{
 					LinkState LSP;
 					LinkState temp;
 					Neighbor Ntemp;
-					bool end;
-					uint16_t j;
-					uint16_t k;
+					bool end, from, good, found;
+					uint16_t j,size;
+					uint16_t count;
 					uint16_t* arr;
-					bool same = FALSE;
-					uint16_t count = 0;
+					bool same;
+					bool replace; 
+					count = 0;
 					end = TRUE;
+					from = FALSE;
+					good = TRUE;
+					found = FALSE;
 					i = 0;
-					k = 0;
-					arr = myMsg->payload;
-					LSP.Dest = myMsg->src;
-					LSP.Next = 0;
-					LSP.Seq = myMsg->seq;
-					while (end){
-						if (arr[i] < 1)
-						{
-							LSP.Neighbors[i] = 0;
-							end = FALSE;
-							break;
-						}
-						else if (myMsg->src == TOS_NODE_ID)
-						{
-							//drop packet, since we don't want the LSP from itself
-							same = TRUE;
-							break;
-						}
-						else
-						{
-							//dbg(ROUTING_CHANNEL, "i before: %d\n", i);
-							LSP.Neighbors[i] = arr[i];
-							count++;
-							//dbg(ROUTING_CHANNEL, "Recieved info on %d, has neighbor %d with cost %d, next is %d\n", LSP.Dest, LSP.Neighbors[i], LSP.Cost, LSP.Next);
-						}
-						i = i+1;
-						//dbg(ROUTING_CHANNEL, "i after: %d\n", i);
-					}
-					LSP.Cost = MAX_TTL - myMsg->TTL;
-					if (same == FALSE)
-					{
-						LSP.NeighborsLength = count;
-						//dbg(ROUTING_CHANNEL, "Table for %d: \n", TOS_NODE_ID);
-						j = 0;
-						call RoutingTable.pushfront(LSP);
-						/*for (j = 0; j < call RoutingTable.size(); j++)
-						{
-							//printLSP();
-							k = 0;
-							temp = call RoutingTable.get(j);
-							//dbg(ROUTING_CHANNEL, "table size: %d\n", call RoutingTable.size());
-							//dbg(ROUTING_CHANNEL, "[k] = %d\n", temp.Neighbors[k]);
-							for (k = 0; k < temp.NeighborsLength; k++)
-							{
-								if((temp.Dest == LSP.Dest) && (temp.Seq <= LSP.Seq))
+					if (myMsg->src != TOS_NODE_ID){
+						arr = myMsg->payload;
+						size = call RoutingTable.size();
+						LSP.Dest = myMsg->src;
+						LSP.Seq = myMsg->seq;
+						LSP.Cost = MAX_TTL - myMsg->TTL;
+						dbg(GENERAL_CHANNEL, "myMsg->TTL is %d, LSP.Cost is %d, good is %d\n", myMsg->TTL, LSP.Cost, good);
+
+						if (!call RoutingTable.isEmpty()){
+							for (i = 0; i < size; i++){
+								temp = call RoutingTable.get(i);
+								if ((temp.Dest == LSP.Dest) && (LSP.Seq >= temp.Seq))
 								{
-									call RoutingTable.removeFromList(j);
+									call RoutingTable.removeFromList(i);
+									//dbg(ROUTING_CHANNEL, "Deleted and replaced %d\n", LSP.Dest);
+								}
+								else if((temp.Dest == LSP.Dest) && (LSP.Seq < temp.Seq))
+								{
+									good = FALSE;
 								}
 							}
-							//printLSP();
-						}*/
-						printLSP();
-						seqCounter++;
-						makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
-						pushPack(sendPackage);
-						call Sender.send(sendPackage, AM_BROADCAST_ADDR);
+						}
+						i=0;
+						count=0;
+						while(arr[i] > 0)
+						{
+							LSP.Neighbors[i] = arr[i];
+							//dbg(GENERAL_CHANNEL, "arr[i] = %d\n", arr[i]);
+							count++;
+							i++;
+						}
+						LSP.Next = 0;
+						
+						if (same == FALSE)
+						{
+							LSP.NeighborsLength = count;
+							//dbg(ROUTING_CHANNEL, "Table for %d: \n", TOS_NODE_ID);
+							//if(good == TRUE)
+							//{
+								call RoutingTable.pushfront(LSP);
+							//}
+							//findNext();
+							printLSP();
+							//seqCounter++;
+							makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, myMsg->seq+1, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
+							pushPack(sendPackage);
+							call Sender.send(sendPackage, AM_BROADCAST_ADDR);
+						}
 					}
 				}
 				//if we didn't find a match
@@ -343,7 +344,7 @@ implementation{
 			temp = call RoutingTable.get(i);
 			dbg(GENERAL_CHANNEL, "LSP from %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
 		}
-		dbg(GENERAL_CHANNEL, "size is %d\n", call RoutingTable.size());
+		//dbg(GENERAL_CHANNEL, "size is %d\n", call RoutingTable.size());
 	}
 
 
@@ -412,6 +413,7 @@ implementation{
 	void floodLSP(){
 		//run to flood LSPs, sending info of this node's direct neighbors
 		pack LSP;
+		LinkState O;
 		//dbg(ROUTING_CHANNEL, "LSP Initial Flood from %d\n", TOS_NODE_ID);
 		//check to see if there are neighbors to at all
 		if (!call Neighbors.isEmpty()){
@@ -419,6 +421,8 @@ implementation{
 			uint16_t length = call Neighbors.size();
 			uint16_t directNeighbors[length+1];
 			Neighbor temp;
+			LinkState Ltemp;
+			bool itself = TRUE;
 			//dbg(ROUTING_CHANNEL, "length = %d/n", length);
 
 			//move the neighbors into the array
@@ -426,78 +430,192 @@ implementation{
 				temp = call Neighbors.get(i);
 				directNeighbors[i] = temp.Node;
 			}
-			
+			O.Dest = TOS_NODE_ID;
+			O.Cost = 0;
+			O.Next = 0;
+			O.Seq = 0;
+			O.NeighborsLength = length;
+			//O.from = TOS_NODE_ID;
+			for(i = 0; i < length; i++)
+			{
+				O.Neighbors[i] = directNeighbors[i];
+			}
+			for(i=0; i<call RoutingTable.size(); i++)
+			{
+				Ltemp = call RoutingTable.get(i);
+				if(TOS_NODE_ID == Ltemp.Dest)
+				{
+					itself = FALSE;
+				}
+			}
 			//set a negative number to tell future loops to stop!
 			directNeighbors[length] = 0;
+			//directNeighbors[length+1] = TOS_NODE_ID;
 			//dbg(ROUTING_CHANNEL, "this should be 0: %d\n", directNeighbors[length]);
-			
+			if(itself == TRUE)
+			{
+				//call RoutingTable.pushfront(O);
+			}
 			//start flooding the packet
-			makePack(&LSP, TOS_NODE_ID, AM_BROADCAST_ADDR, MAX_TTL-1, PROTOCOL_LINKSTATE, seqCounter++, (uint8_t*)directNeighbors, (uint8_t) sizeof(directNeighbors));
+			makePack(&LSP, TOS_NODE_ID, AM_BROADCAST_ADDR, MAX_TTL-1, PROTOCOL_LINKSTATE, seqCounter++, (uint16_t*)directNeighbors, (uint16_t) sizeof(directNeighbors));
 			pushPack(LSP);
 			call Sender.send(LSP, AM_BROADCAST_ADDR);
 		}
 	}
 
-/*	void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next) {
-*		//find the shortest paths
-*		//start confirmed with the node itself
-*		LinkState temp;
-*		LinkState temp2;
-*		LinkState temp3;
-*		LinkState temp4;
-*		uint16_t* NeighborsArr;
-*		uint16_t* NeighborsNeighborsArr;
-*		uint16_t i;
-*		uint16_t j;
-*		uint16_t k;
-*		bool onTentList;
-*		bool onConList;
-*		onTentList = FALSE;
-*		onConList = FALSE;
-*		temp.Dest = Dest;
-*		temp.Cost = Cost;
-*		temp.Next = Next;
-*		call Confirmed.pushfront(temp);
-*		temp2 = call RoutingTable.get(Dest);
-*		while(!end){
-*			//insert all of the direct LSP's from last insert
-*			for (i = 0; i < temp2.NeighborsLength; i++){
-*				NeighborsArr[i] = temp2.Neighbors[i];
-*			}
-*			for (i = 0; i < temp2.NeighborsLength; i++){
-*				onTentList = FALSE;
-*				onConList = FALSE;
-*				temp3 = call RoutingTable(NeighborsArr[i]);
-*				if (!call Tentative.isEmpty()) {
-*					for (j = 0; j < call Tentative.size(); j++){
-*						temp4 = call Tentative.get(j);
-*						if (temp3.Dest == temp4.Dest) {
-*							onTentList = TRUE;
-*							k = j;
-*							}
-*						}
-*				}
-*				if (!call Confirmed.isEmpty()) {
-*					for (j = 0; j < call Confirmed.size(); j++){
-*						temp4 = call Confirmed.get(j);
-*						if (temp3.Dest == temp4.Dest) {
-*							onConList = TRUE;
-*							k = j;
-*						}
-*				}
-*				if (!onTentList && !onConList) {
-*					temp3.Next = NeighborsArr[i];
-*				}
-*				else if (onTentList) {
-*					temp4 = call Tentative.get(k);
-*					if (temp3.Cost < temp4.Cost) {
-*						temp4.Cost = temp3.Cost;
-*						temp.Next = NeighborsArr[k];
-*						
-*					}
-*				}
-*				call Tentative.pushfront(temp3);
-*			}
-*		}
-*	}
-*/ }
+	void findNext()
+	{
+		uint16_t i,j,k,CC;
+		uint16_t tablesize,tentsize;
+		LinkState LSP, LSP2;
+		bool popped = FALSE;
+		tablesize = call RoutingTable.size();
+		tentsize = call Tentative.size();
+		//adds all LSPs on routing table to Tentative based on cost
+		i=0;
+		while (tentsize != tablesize)
+		{
+			LSP = call RoutingTable.get(i);
+			
+		}
+		//checking each of tentative
+		i=0;
+		while(!call Tentative.isEmpty())
+		{
+			k=0;
+			LSP = call Tentative.get(i);
+			LSP2 = call Tentative.get(k);
+			CC = LSP.Cost;
+			popped = FALSE;
+			//check to see if neighbors is TOS_NODE_ID
+			for(j = 0; j < LSP.NeighborsLength; j++)
+			{
+				if(LSP.Neighbors[j] == TOS_NODE_ID)
+				{
+					LSP.Next = LSP.Dest;
+					call Confirmed.pushfront(LSP);
+					call Tentative.popfront();
+					popped = TRUE;
+					break;
+				}
+			}
+			if(popped = FALSE)
+			{
+				for(j=0; j<LSP.NeighborsLength; j++)
+				{
+					while(LSP2.Dest != LSP.Neighbors[j] && k < tablesize)
+					{
+						k++;
+						LSP2 = call Tentative.get(k);
+					}
+					
+				}
+			}
+		}
+	}
+
+	void algorithm(uint16_t Dest, uint16_t Cost, uint16_t Next) {
+		LinkState temp;
+		Neighbor temp2;
+		LinkState temp3;
+		LinkState temp4;
+		uint16_t i,j,k;
+		uint16_t tentInt;
+		uint16_t* NeighborsArr;
+		bool inTentList;
+		bool inConList;
+		temp.Dest = Dest;
+		temp.Cost = Cost;
+		temp.Next = Next;
+		call Confirmed.pushfront(temp);
+
+
+		if (temp.Dest != TOS_NODE_ID) {
+			//How do we know that that index of get is exactly what number we need? Do you need to search before getting to it?
+			for(i=0; i<call RoutingTable.size(); i++)
+			{
+				temp = call RoutingTable.get(i);
+				if(temp.Dest == Dest)
+				{
+					break;
+				}
+			}
+			for (i = 0; i < temp.NeighborsLength; i++) {
+				NeighborsArr[i] = temp.Neighbors[i];
+			} 
+		}
+		
+		for (i = 0; i < call Neighbors.size(); i++){
+			temp2 = call Neighbors.get(i);
+			for (j = 0; j < call RoutingTable.size(); j++) {
+				inTentList = FALSE;
+				inConList = FALSE;
+				temp3 = call RoutingTable.get(j);
+				//If this is recursive, what about situations where temp.Dest != TOS_NODE_ID?
+				if (temp2.Node == temp3.Dest && temp.Dest == TOS_NODE_ID) {
+					temp3.Next = temp2.Node;
+					if (!call Tentative.isEmpty()) {
+						for (k = 0; k < call Tentative.size(); k++){
+							temp4 = call Tentative.get(k);
+							if (temp4.Dest == temp3.Dest) {
+								inTentList = TRUE;
+								tentInt = k;
+							}
+						}
+					}
+					if (!call Confirmed.isEmpty()) {
+						for (k = 0; k < call Confirmed.size(); k++){
+							temp4 = call Confirmed.get(k);
+							if (temp4.Dest == temp3.Dest) {
+								inConList = TRUE;
+							}
+						}
+					}
+					if (!inTentList && !inConList) {
+						call Tentative.pushfront(temp3);
+					}
+					else if (inTentList) {
+						temp4 = call Tentative.get(tentInt);
+						if (temp3.Cost < temp4.Cost) {
+							call Tentative.removeFromList(tentInt);
+							call Tentative.pushfront(temp3); 
+						}
+					}
+				}
+
+				//Much like above, how can we be sure that NeighborsArr[j] is the right index we need?
+				if (temp.Dest != TOS_NODE_ID && NeighborsArr[j] == temp3.Dest) {
+					temp3.Next = temp2.Node;
+					if (!call Tentative.isEmpty()) {
+						for (k = 0; k < call Tentative.size(); k++) {
+							temp4 = call Tentative.get(k);
+							if (temp4.Dest == temp3.Dest) {
+								inTentList = TRUE;
+								tentInt = k;
+							}
+						}
+					}
+					if (!call Confirmed.isEmpty()) {
+						for (k = 0; k < call Confirmed.size(); k++) {
+							temp4 = call Confirmed.get(k);
+							if (temp4.Dest == temp3.Dest) {
+								inConList = TRUE;
+							}
+						}
+					} 
+					if (!inTentList && !inConList) {
+						call Tentative.pushfront(temp3);
+					}
+					else if (inTentList) {
+						temp4 = call Tentative.get(tentInt);
+						if (temp3.Cost < temp4.Cost) {
+							call Tentative.removeFromList(tentInt);
+							call Tentative.pushfront(temp3);
+							
+						}
+					}
+				}
+			}
+		}		
+	}
+ }
