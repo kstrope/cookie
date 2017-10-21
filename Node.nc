@@ -111,6 +111,8 @@ implementation{
 		//printLSP();
 		//findNext();
 	}
+	if (accessCounter > 1 && accessCounter % 10 == 0 && accessCounter < 31)
+		algorithm(TOS_NODE_ID, 0, 0);
    }
 
 
@@ -525,6 +527,7 @@ implementation{
 		Neighbor temp2;
 		LinkState temp3;
 		LinkState temp4;
+		LinkState temp5;
 		LinkState minTemp;
 		uint16_t i,j,k,minCost,minInt;
 		uint16_t tentInt;
@@ -560,12 +563,16 @@ implementation{
 				temp3 = call RoutingTable.get(j);
 				//If this is recursive, what about situations where temp.Dest != TOS_NODE_ID?
 				if (temp2.Node == temp3.Dest && temp.Dest == TOS_NODE_ID) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 1);
 					temp3.Next = temp2.Node;
 					
 					if (!call Tentative.isEmpty()) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 2);
 						for (k = 0; k < call Tentative.size(); k++){
+					dbg(ROUTING_CHANNEL, "debug %d\n", 3);
 							temp4 = call Tentative.get(k);
 							if (temp4.Dest == temp3.Dest) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 4);
 								inTentList = TRUE;
 								tentInt = k;
 							}
@@ -573,55 +580,73 @@ implementation{
 					}
 
 					if (!call Confirmed.isEmpty()) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 5);
 						for (k = 0; k < call Confirmed.size(); k++){
+					dbg(ROUTING_CHANNEL, "debug %d\n", 6);
 							temp4 = call Confirmed.get(k);
 							if (temp4.Dest == temp3.Dest) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 7);
 								inConList = TRUE;
 							}
 						}
 					}
 
+					dbg(ROUTING_CHANNEL, "debug %d\n", 8);
 					if (!inTentList && !inConList) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 9);
 						call Tentative.pushfront(temp3);
 					}
 					else if (inTentList) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 10);
 						temp4 = call Tentative.get(tentInt);
 						if (temp3.Cost < temp4.Cost) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 11);
 							call Tentative.removeFromList(tentInt);
 							call Tentative.pushfront(temp3); 
 						}
 					}
 
 				}
-
+				dbg(ROUTING_CHANNEL, "debug %d\n", 12);
 				//Much like above, how can we be sure that NeighborsArr[j] is the right index we need?
-				else if (temp.Dest != TOS_NODE_ID)
+				else if (temp.Dest != TOS_NODE_ID) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 13);
 					for (k = 0; k < temp.NeighborsLength; k++) { 
 						if (NeighborsArr[k] == temp3.Dest) {
+					dbg(ROUTING_CHANNEL, "debug %d\n", 14);
 							temp3.Next = temp2.Node;
 							if (!call Tentative.isEmpty()) {
+								dbg(ROUTING_CHANNEL, "debug %d\n", 15);
 								for (k = 0; k < call Tentative.size(); k++) {
+									dbg(ROUTING_CHANNEL, "debug %d\n", 16);
 									temp4 = call Tentative.get(k);
 									if (temp4.Dest == temp3.Dest) {
+										dbg(ROUTING_CHANNEL, "debug %d\n", 17);
 										inTentList = TRUE;
 										tentInt = k;
 									}
 								}
 							}
 							if (!call Confirmed.isEmpty()) {
+								dbg(ROUTING_CHANNEL, "debug %d\n", 18);
 								for (k = 0; k < call Confirmed.size(); k++) {
+									dbg(ROUTING_CHANNEL, "debug %d\n", 19);
 									temp4 = call Confirmed.get(k);
 									if (temp4.Dest == temp3.Dest) {
+										dbg(ROUTING_CHANNEL, "debug %d\n", 20);
 										inConList = TRUE;
 									}
 								}
 							} 
 							if (!inTentList && !inConList) {
+								dbg(ROUTING_CHANNEL, "debug %d\n", 21);
 								call Tentative.pushfront(temp3);
 							}
 							else if (inTentList) {
+								dbg(ROUTING_CHANNEL, "debug %d\n", 22);
 								temp4 = call Tentative.get(tentInt);
 								if (temp3.Cost < temp4.Cost) {
+									dbg(ROUTING_CHANNEL, "debug %d\n", 23);
 									call Tentative.removeFromList(tentInt);
 									call Tentative.pushfront(temp3);
 								}	
@@ -630,7 +655,11 @@ implementation{
 					}	
 				}
 				if (call Tentative.isEmpty()) {
-					//print
+					dbg(ROUTING_CHANNEL, "Table for %d\n", TOS_NODE_ID);
+					for (i = 0; i < call Confirmed.size(); i++) {
+						temp5 = call Confirmed.get(i);
+						dbg(ROUTING_CHANNEL, "Dest: %d, Cost: %d, Next: %d\n", temp5.Dest, temp5.Cost, temp5.Next);
+					}
 				}
 				else {
 					minCost = 65536;
