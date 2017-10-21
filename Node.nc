@@ -106,7 +106,7 @@ implementation{
 
    event void PeriodicTimer.fired() {
 	accessNeighbors();
-	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 6){
+	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 16){
 		floodLSP();
 		//printLSP();
 		//findNext();
@@ -165,7 +165,7 @@ implementation{
 					LinkState temp;
 					Neighbor Ntemp;
 					bool end, from, good, found;
-					uint16_t j,size;
+					uint16_t j,size,k;
 					uint16_t count;
 					uint16_t* arr;
 					bool same;
@@ -182,21 +182,51 @@ implementation{
 						LSP.Dest = myMsg->src;
 						LSP.Seq = myMsg->seq;
 						LSP.Cost = MAX_TTL - myMsg->TTL;
-						dbg(GENERAL_CHANNEL, "myMsg->TTL is %d, LSP.Cost is %d, good is %d\n", myMsg->TTL, LSP.Cost, good);
+						//dbg(GENERAL_CHANNEL, "myMsg->TTL is %d, LSP.Cost is %d, good is %d\n", myMsg->TTL, LSP.Cost, good);
 
 						if (!call RoutingTable.isEmpty()){
-							for (i = 0; i < size; i++){
+							//dbg(GENERAL_CHANNEL, "list before removal loop\n");
+							//printLSP();
+							/*for (i = 0; i < call RoutingTable.size(); i++){
+								dbg(GENERAL_CHANNEL, "RoutingTable.size() is %d\n", call RoutingTable.size());
 								temp = call RoutingTable.get(i);
 								if ((temp.Dest == LSP.Dest) && (LSP.Seq >= temp.Seq))
 								{
-									call RoutingTable.removeFromList(i);
-									//dbg(ROUTING_CHANNEL, "Deleted and replaced %d\n", LSP.Dest);
+									dbg(ROUTING_CHANNEL, "Deleting %d and replaced %d, i is %d\n",temp.Dest, LSP.Dest, i);
+									if((i+1) == size)
+									{
+										dbg(GENERAL_CHANNEL, "removing using popback()\n");
+										call RoutingTable.popback();
+									}
+									else
+									{
+										dbg(GENERAL_CHANNEL, "removing using removeFromList()\n");
+										k = i;
+										call RoutingTable.removeFromList(k);
+									}
 								}
-								else if((temp.Dest == LSP.Dest) && (LSP.Seq < temp.Seq))
+							}*/
+							i=0;
+							while(!call RoutingTable.isEmpty())
+							{
+								temp = call RoutingTable.front();
+								if((temp.Dest == LSP.Dest) && (LSP.Seq >= temp.Seq))
 								{
-									good = FALSE;
+									call RoutingTable.popfront();
+								}
+								else
+								{
+									call Tentative.pushfront(call RoutingTable.front());
+									call RoutingTable.popfront();
 								}
 							}
+							while(!call Tentative.isEmpty())
+							{
+								call RoutingTable.pushback(call Tentative.front());
+								call Tentative.popfront();
+							}
+							//dbg(GENERAL_CHANNEL, "list after removal loop\n");
+							//printLSP();
 						}
 						i=0;
 						count=0;
@@ -208,22 +238,18 @@ implementation{
 							i++;
 						}
 						LSP.Next = 0;
-						
-						if (same == FALSE)
-						{
-							LSP.NeighborsLength = count;
-							//dbg(ROUTING_CHANNEL, "Table for %d: \n", TOS_NODE_ID);
-							//if(good == TRUE)
-							//{
-								call RoutingTable.pushfront(LSP);
-							//}
-							//findNext();
-							printLSP();
-							//seqCounter++;
-							makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, myMsg->seq+1, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
-							pushPack(sendPackage);
-							call Sender.send(sendPackage, AM_BROADCAST_ADDR);
-						}
+						LSP.NeighborsLength = count;
+						//dbg(ROUTING_CHANNEL, "Table for %d: \n", TOS_NODE_ID);
+						//if(good == TRUE)
+						//{
+							call RoutingTable.pushfront(LSP);
+						//}
+						//findNext();
+						printLSP();
+						seqCounter++;
+						makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
+						pushPack(sendPackage);
+						call Sender.send(sendPackage, AM_BROADCAST_ADDR);
 					}
 				}
 				//if we didn't find a match
@@ -343,8 +369,12 @@ implementation{
 		{
 			temp = call RoutingTable.get(i);
 			dbg(GENERAL_CHANNEL, "LSP from %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
+			for(j=0; j<temp.NeighborsLength; j++)
+			{
+				//dbg(GENERAL_CHANNEL, "Neighbor at %d\n", temp.Neighbors[j]);
+			}
 		}
-		//dbg(GENERAL_CHANNEL, "size is %d\n", call RoutingTable.size());
+		dbg(GENERAL_CHANNEL, "size is %d\n", call RoutingTable.size());
 	}
 
 
@@ -421,8 +451,6 @@ implementation{
 			uint16_t length = call Neighbors.size();
 			uint16_t directNeighbors[length+1];
 			Neighbor temp;
-			LinkState Ltemp;
-			bool itself = TRUE;
 			//dbg(ROUTING_CHANNEL, "length = %d/n", length);
 
 			//move the neighbors into the array
@@ -430,32 +458,10 @@ implementation{
 				temp = call Neighbors.get(i);
 				directNeighbors[i] = temp.Node;
 			}
-			O.Dest = TOS_NODE_ID;
-			O.Cost = 0;
-			O.Next = 0;
-			O.Seq = 0;
-			O.NeighborsLength = length;
-			//O.from = TOS_NODE_ID;
-			for(i = 0; i < length; i++)
-			{
-				O.Neighbors[i] = directNeighbors[i];
-			}
-			for(i=0; i<call RoutingTable.size(); i++)
-			{
-				Ltemp = call RoutingTable.get(i);
-				if(TOS_NODE_ID == Ltemp.Dest)
-				{
-					itself = FALSE;
-				}
-			}
 			//set a negative number to tell future loops to stop!
 			directNeighbors[length] = 0;
 			//directNeighbors[length+1] = TOS_NODE_ID;
 			//dbg(ROUTING_CHANNEL, "this should be 0: %d\n", directNeighbors[length]);
-			if(itself == TRUE)
-			{
-				//call RoutingTable.pushfront(O);
-			}
 			//start flooding the packet
 			makePack(&LSP, TOS_NODE_ID, AM_BROADCAST_ADDR, MAX_TTL-1, PROTOCOL_LINKSTATE, seqCounter++, (uint16_t*)directNeighbors, (uint16_t) sizeof(directNeighbors));
 			pushPack(LSP);
