@@ -197,7 +197,7 @@ implementation{
 							while(!call RoutingTable.isEmpty())
 							{
 								temp = call RoutingTable.front();
-								if((temp.Dest == LSP.Dest) && (LSP.Seq >= temp.Seq))
+								if((temp.Dest == LSP.Dest) && (LSP.Seq >= temp.Seq) && (LSP.Cost < temp.Cost))
 								{
 									call RoutingTable.popfront();
 								}
@@ -209,7 +209,7 @@ implementation{
 							}
 							while(!call Temp.isEmpty())
 							{
-								call RoutingTable.pushback(call Temp.front());
+								call RoutingTable.pushfront(call Temp.front());
 								call Temp.popfront();
 							}
 						}
@@ -286,7 +286,7 @@ implementation{
 				}
 				if(NEXT == 0)
 				{
-					NEXT = AM_BROADCAST_ADDR;
+					//NEXT = AM_BROADCAST_ADDR;
 				}
 				//send the new packet
 				dbg(ROUTING_CHANNEL, "meant for %d, sending to %d\n", myMsg->src, NEXT);
@@ -313,7 +313,7 @@ implementation{
 				}
 				if(SEND == 0)
 				{
-					SEND = AM_BROADCAST_ADDR;
+					//SEND = AM_BROADCAST_ADDR;
 				}
 				dbg(ROUTING_CHANNEL, "meant for %d, sending to %d\n", myMsg->dest, SEND);
 				call Sender.send(sendPackage, SEND);
@@ -343,7 +343,7 @@ implementation{
 	}
 	if(next == 0)
 	{
-		next = AM_BROADCAST_ADDR;
+		//next = AM_BROADCAST_ADDR;
 	}
       dbg(GENERAL_CHANNEL, "PING EVENT \n");
       makePack(&sendPackage, TOS_NODE_ID, destination, MAX_TTL, 0, 0, payload, PACKET_MAX_PAYLOAD_SIZE);
@@ -396,11 +396,11 @@ implementation{
       memcpy(Package->payload, payload, length);
    }
 
-	void printLSP()
-	{
-		LinkState temp;
-		uint16_t i, j;
-		for(i=0; i < call RoutingTable.size(); i++)
+   void printLSP()
+   {
+      LinkState temp;
+      uint16_t i, j;
+      for(i=0; i < call RoutingTable.size(); i++)
 		{
 			temp = call RoutingTable.get(i);
 			dbg(GENERAL_CHANNEL, "LSP from %d, Cost: %d, Next: %d, Seq: %d, Count; %d\n", temp.Dest, temp.Cost, temp.Next, temp.Seq, temp.NeighborsLength);
