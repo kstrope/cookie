@@ -136,7 +136,7 @@ def main():
     s.addChannel(s.NEIGHBOR_CHANNEL);
     s.addChannel(s.ROUTING_CHANNEL);
 
-    s.runTime(100);
+    s.runTime(1000);
     s.routeDMP(1);
     s.runTime(100);
     s.routeDMP(2);

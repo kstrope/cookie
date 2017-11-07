@@ -281,7 +281,7 @@ implementation{
 					DEST = call Confirmed.get(x);
 					if(myMsg->src == DEST.Dest)
 					{
-						NEXT == DEST.Next;
+						NEXT = DEST.Next;
 					}
 				}
 				if(NEXT == 0)
