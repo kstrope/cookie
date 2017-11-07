@@ -345,7 +345,7 @@ implementation{
 	{
 		//next = AM_BROADCAST_ADDR;
 	}
-      dbg(GENERAL_CHANNEL, "PING EVENT \n");
+      dbg(GENERAL_CHANNEL, "PING EVENT, destination %d; sending to %d \n", destination, next);
       makePack(&sendPackage, TOS_NODE_ID, destination, MAX_TTL, 0, 0, payload, PACKET_MAX_PAYLOAD_SIZE);
       call Sender.send(sendPackage, next);
    }
