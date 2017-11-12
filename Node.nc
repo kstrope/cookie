@@ -111,7 +111,8 @@ implementation{
 	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 16){
 		floodLSP();
 		//algorithm(TOS_NODE_ID, 0, 0, 0, call Neighbors.size());
-		//printLSP();
+		if (TOS_NODE_ID == 3) 		
+			printLSP();
 		//findNext();
 	}
 	if (accessCounter > 1 && accessCounter % 20 == 0 && accessCounter < 61)
@@ -170,18 +171,19 @@ implementation{
 					//store the LSP in a list of structs
 					LinkState LSP;
 					LinkState temp;
-					Neighbor Ntemp;
-					bool end, from, good, found;
+					//Neighbor Ntemp;
+					bool end, from, good, found, bigCost;
 					uint16_t j,size,k;
 					uint16_t count;
 					uint16_t* arr;
-					bool same;
-					bool replace; 
+					//bool same;
+					//bool replace; 
 					count = 0;
 					end = TRUE;
 					from = FALSE;
 					good = TRUE;
 					found = FALSE;
+					bigCost = FALSE;
 					i = 0;
 					if (myMsg->src != TOS_NODE_ID){
 						arr = myMsg->payload;
@@ -189,17 +191,29 @@ implementation{
 						LSP.Dest = myMsg->src;
 						LSP.Seq = myMsg->seq;
 						LSP.Cost = MAX_TTL - myMsg->TTL;
-						//dbg(GENERAL_CHANNEL, "myMsg->TTL is %d, LSP.Cost is %d, good is %d\n", myMsg->TTL, LSP.Cost, good);
-
+						if (TOS_NODE_ID == 3)
+							dbg(GENERAL_CHANNEL, "myMsg->TTL is %d, LSP.Cost is %d, good is %d, from %d\n", myMsg->TTL, LSP.Cost, good, myMsg->src);
+						i = 0;
+						count = 0;
+						while (arr[i] > 0) {
+							LSP.Neighbors[i] = arr[i];
+							count++;
+							i++;
+						}
+						LSP.Next = 0;
+						LSP.NeighborsLength = count;
 						if (!call RoutingTable.isEmpty())
 						{
 							i=0;
 							while(!call RoutingTable.isEmpty())
 							{
 								temp = call RoutingTable.front();
-								if((temp.Dest == LSP.Dest) && (LSP.Seq >= temp.Seq) && (LSP.Cost < temp.Cost))
+								//if (LSP.Cost < temp.Cost && temp.Dest == LSP.Dest)
+									//bigCost = TRUE;
+								if((temp.Dest == LSP.Dest) && ((LSP.Seq >= temp.Seq) || (LSP.Cost < temp.Cost)))
 								{
 									call RoutingTable.popfront();
+									bigCost = TRUE;
 								}
 								else
 								{
@@ -213,17 +227,8 @@ implementation{
 								call Temp.popfront();
 							}
 						}
-						i=0;
-						count=0;
-						while(arr[i] > 0)
-						{
-							LSP.Neighbors[i] = arr[i];
-							count++;
-							i++;
-						}
-						LSP.Next = 0;
-						LSP.NeighborsLength = count;
-						call RoutingTable.pushfront(LSP);
+						if (bigCost != TRUE)
+							call RoutingTable.pushfront(LSP);
 						//printLSP();
 						seqCounter++;
 						makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
@@ -254,7 +259,7 @@ implementation{
 					{
 						//not in list, so we're going to add it
 						//dbg(NEIGHBOR_CHANNEL, "%d not found, put in list\n", myMsg->src);
-						LinkState temp;
+						//LinkState temp;
 						Neighbor1.Node = myMsg->src;
 						Neighbor1.pingNumber = 0;
 						call Neighbors.pushback(Neighbor1);
@@ -535,9 +540,9 @@ implementation{
 		Neighbor TEMP;
 		LinkState temp3;
 		LinkState temp4;
-		LinkState temp5;
+		//LinkState temp5;
 		LinkState temp6;
-		LinkState temp7;
+		//LinkState temp7;
 		LinkState minTemp;
 		uint16_t i,j,k,l,m,minCost,minInt;
 		uint16_t tentInt;
