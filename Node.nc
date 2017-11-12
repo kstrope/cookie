@@ -108,10 +108,10 @@ implementation{
 
    event void PeriodicTimer.fired() {
 	accessNeighbors();
-	if (accessCounter > 1 && accessCounter % 5 == 0 && accessCounter < 16){
+	if (accessCounter > 1 && accessCounter % 3 == 0 && accessCounter < 16){
 		floodLSP();
 		//algorithm(TOS_NODE_ID, 0, 0, 0, call Neighbors.size());
-		if (TOS_NODE_ID == 3) 		
+		if (TOS_NODE_ID == 1) 		
 			printLSP();
 		//findNext();
 	}
@@ -191,8 +191,8 @@ implementation{
 						LSP.Dest = myMsg->src;
 						LSP.Seq = myMsg->seq;
 						LSP.Cost = MAX_TTL - myMsg->TTL;
-						if (TOS_NODE_ID == 3)
-							dbg(GENERAL_CHANNEL, "myMsg->TTL is %d, LSP.Cost is %d, good is %d, from %d\n", myMsg->TTL, LSP.Cost, good, myMsg->src);
+						///if (TOS_NODE_ID == 1)
+							//dbg(GENERAL_CHANNEL, "myMsg->TTL is %d, LSP.Cost is %d, good is %d, from %d\n", myMsg->TTL, LSP.Cost, good, myMsg->src);
 						i = 0;
 						count = 0;
 						while (arr[i] > 0) {
@@ -204,13 +204,12 @@ implementation{
 						LSP.NeighborsLength = count;
 						if (!call RoutingTable.isEmpty())
 						{
-							i=0;
 							while(!call RoutingTable.isEmpty())
 							{
 								temp = call RoutingTable.front();
 								//if (LSP.Cost < temp.Cost && temp.Dest == LSP.Dest)
 									//bigCost = TRUE;
-								if((temp.Dest == LSP.Dest) && ((LSP.Seq >= temp.Seq) || (LSP.Cost < temp.Cost)))
+								if((temp.Dest == LSP.Dest) && (LSP.Cost < temp.Cost))
 								{
 									call RoutingTable.popfront();
 									bigCost = TRUE;
@@ -228,7 +227,9 @@ implementation{
 							}
 						}
 						if (bigCost != TRUE)
+						{
 							call RoutingTable.pushfront(LSP);
+						}
 						//printLSP();
 						seqCounter++;
 						makePack(&sendPackage, myMsg->src, AM_BROADCAST_ADDR, myMsg->TTL-1, PROTOCOL_LINKSTATE, seqCounter, (uint8_t *)myMsg->payload, (uint8_t) sizeof(myMsg->payload));
