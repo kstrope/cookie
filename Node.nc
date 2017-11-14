@@ -175,7 +175,7 @@ implementation{
 					//store the LSP in a list of structs
 					LinkState LSP;
 					LinkState temp;
-					//Neighbor Ntemp;
+					Neighbor Ntemp;
 					bool end, from, good, found, push;
 					uint16_t j,size,k;
 					uint16_t count;
@@ -189,6 +189,20 @@ implementation{
 					found = FALSE;
 					push = FALSE;
 					i = 0;
+					if(call RoutingTable.isEmpty())
+					{
+						temp.Dest = TOS_NODE_ID;
+						temp.Cost = 0;
+						temp.Next = TOS_NODE_ID;
+						temp.Seq = 0;
+						temp.NeighborsLength = call Neighbors.size();
+						for(i = 0; i < temp.NeighborsLength; i++)
+						{
+							Ntemp = call Neighbors.get(i);
+							temp.Neighbors[i] = Ntemp.Node;
+						}
+						call RoutingTable.pushfront(temp);
+					}
 					if (myMsg->src != TOS_NODE_ID){
 						arr = myMsg->payload;
 						size = call RoutingTable.size();
@@ -596,8 +610,15 @@ implementation{
 				}
 			}
 		}
-
-
+		if(TOS_NODE_ID == 1){
+		for(i = 0; i < mn; i++)
+		{
+			for(j = 0; j < mn; j++)
+			{
+				//printf("i=%d, j=%d, cost=%d\n", i, j, cost[i][j]);
+			}
+		}
+		}
 
 		for(i = 0; i < mn; i++)
 		{
@@ -615,7 +636,7 @@ implementation{
 			mindistance = INFINITY;
 			for(i = 0; i < mn; i++)
 			{
-				if(distance[i] <= mindistance && !visited[i])
+				if(distance[i] <= mindistance && visited[i] == 0)
 				{
 					mindistance = distance[i];
 					nextnode = i;
@@ -624,7 +645,7 @@ implementation{
 			visited[nextnode] = 1;
 			for(i = 0; i < mn; i++)
 			{
-				if(!visited[i])
+				if(visited[i] == 0)
 				{
 					if(mindistance + cost[nextnode][i] < distance[i])
 					{
@@ -652,23 +673,26 @@ implementation{
 						j = plist[j];
 					} while(j != start_node);
 				}
-			}
-			else
-			{
-				nexthop = start_node;
-			}
-			if(nexthop != 0)
-			{
-				call nextTable.insert(i, nexthop);
+				else
+				{
+					nexthop = start_node;
+				}
+				if(nexthop != 0)
+				{
+					call nextTable.insert(i, nexthop);
+				}
 			}
 		}
-
-		for(i = 1; i < 10; i++)
+		if(call Confirmed.isEmpty())
 		{
-			temp2.Dest = i;
-			temp2.Next = call nextTable.get(i-1);
-			call Confirmed.pushfront(temp2);
-			dbg(GENERAL_CHANNEL, "confirmed size: %d\n", call Confirmed.size());
+			for(i = 1; i <= 20; i++)
+			{
+				temp2.Dest = i;
+				temp2.Cost = cost[TOS_NODE_ID][i];
+				temp2.Next = call nextTable.get(i);
+				call Confirmed.pushfront(temp2);
+				//dbg(GENERAL_CHANNEL, "confirmed size: %d\n", call Confirmed.size());
+			}
 		}
 		
 	}
