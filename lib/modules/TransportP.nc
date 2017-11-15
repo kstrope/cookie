@@ -116,7 +116,9 @@ implementation {
     * @return uint16_t - return SUCCESS if you are able to handle this
     *    packet or FAIL if there are errors.
     */
-   command error_t Transport.receive(pack* package) {}
+   command error_t Transport.receive(pack* package) {
+	
+	}
 
    /**
     * Read from the socket and write this data to the buffer. This data
@@ -147,7 +149,9 @@ implementation {
     * @return socket_t - returns SUCCESS if you are able to attempt
     *    a connection with the fd passed, else return FAIL.
     */
-   command error_t Transport.connect(socket_t fd, socket_addr_t * addr) {}
+   command error_t Transport.connect(socket_t fd, socket_addr_t * addr) {
+		
+	}
 
    /**
     * Closes the socket.
@@ -180,5 +184,32 @@ implementation {
     * @return error_t - returns SUCCESS if you are able change the state 
     *   to listen else FAIL.
     */
-   command error_t Transport.listen(socket_t fd) {}
+   command error_t Transport.listen(socket_t fd) {
+	socket_store_t temp;
+	enum socket_state tempState;
+	error_t success;
+	bool found = FALSE;
+	while (!call Sockets.isEmpty()) {
+		temp = call Sockets.front();
+		call Sockets.popfront();
+		if (temp.fd == fd && !found) {
+			tempState = LISTEN;
+			temp.state = tempState;
+			found = TRUE;
+			dbg(TRANSPORT_CHANNEL, "fd found, changing state to %d\n", temp.state);
+			call TempSockets.pushfront(temp);
+		}
+		else {
+			call TempSockets.pushfront(temp);
+		}
+	}
+	while (!call TempSockets.isEmpty()) {
+		call Sockets.pushfront(call TempSockets.front());
+		call TempSockets.popfront();
+	}
+	if (found == TRUE)
+		return success = SUCCESS;
+	else
+		return success = FAIL;
+	}
 }

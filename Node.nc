@@ -430,12 +430,16 @@ implementation{
 	if (call Transport.bind(fd, &address) == SUCCESS) {
 		dbg(TRANSPORT_CHANNEL, "yay\n");
 	}
-
+	if (call Transport.listen(fd) == SUCCESS) {
+		dbg(TRANSPORT_CHANNEL, "listening...\n");
+	}
 	dbg(TRANSPORT_CHANNEL, "Node %d set as server with port %d\n", TOS_NODE_ID, port);
 	dbg(TRANSPORT_CHANNEL, "fd is %d\n", fd);
    }
 
    event void CommandHandler.setTestClient(uint16_t dest, uint16_t sourcePort, uint16_t destPort, uint16_t transfer){
+	pack syn;
+	socket_store_t synSocket;
 	socket_addr_t address;
 	socket_addr_t serverAddress;
 	socket_t fd = call Transport.socket();
@@ -446,6 +450,9 @@ implementation{
 	if (call Transport.bind(fd, &address) == SUCCESS) {
 		dbg(TRANSPORT_CHANNEL, "client yay\n");
 	}
+	//send SYN packet
+	//makePack(&syn, TOS_NODE_ID, dest, MAX_TTL, PROTOCOL_TCP, 
+	//
 	dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
    }
 
