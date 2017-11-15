@@ -11,7 +11,9 @@ class TestSim:
     # COMMAND TYPES
     CMD_PING = 0
     CMD_NEIGHBOR_DUMP = 1
-    CMD_ROUTE_DUMP=3
+    CMD_ROUTE_DUMP= 3
+    CMD_TEST_CLIENT = 4
+    CMD_TEST_SERVER = 5
 
     # CHANNELS - see includes/channels.h
     COMMAND_CHANNEL="command";
@@ -120,6 +122,12 @@ class TestSim:
     def routeDMP(self, destination):
         self.sendCMD(self.CMD_ROUTE_DUMP, destination, "routing command");
 
+    def TestClient(self, source, sourcePort, destPort, dest, transfer):
+	self.sendCMD(self.CMD_TEST_CLIENT, source, "{0}{1}{2}{3}".format(chr(dest),chr(sourcePort),chr(destPort),transfer));
+
+    def TestServer(self, address, port):
+        self.sendCMD(self.CMD_TEST_SERVER, address, chr(port)),
+
     def addChannel(self, channelName, out=sys.stdout):
         print 'Adding Channel', channelName;
         self.t.addChannel(channelName, out);
@@ -135,39 +143,19 @@ def main():
     s.addChannel(s.FLOODING_CHANNEL);
     s.addChannel(s.NEIGHBOR_CHANNEL);
     s.addChannel(s.ROUTING_CHANNEL);
+    s.addChannel(s.TRANSPORT_CHANNEL);
 
-    s.runTime(500);
-    s.routeDMP(10);
+    s.runTime(1000);
+    s.TestServer(2, 80);
     s.runTime(50);
-    s.routeDMP(20);
+    s.TestClient(3, 64, 80, 2, 8);
     s.runTime(50);
-    s.routeDMP(1);
+    s.TestServer(4, 20);
     s.runTime(50);
-    s.routeDMP(2);
+    s.TestServer(5, 69);
     s.runTime(50);
-    s.routeDMP(3);
+    s.TestServer(2, 81);
     s.runTime(50);
-    s.routeDMP(4);
-    s.runTime(50);
-    s.routeDMP(5);
-    s.runTime(50);
-    s.routeDMP(6);
-    s.runTime(50);
-    s.routeDMP(7);
-    s.runTime(50);
-    s.routeDMP(8);
-    s.runTime(50);
-    s.routeDMP(9);
-    s.runTime(100);
-    s.ping(1,19,"hi");
-    s.runTime(50);
-    s.ping(1,13,"you there?");
-    s.runTime(50);
-    s.ping(2,9,"sup?")
-    s.runTime(50);
-    s.ping(3,6,"ayee!");
-    s.runTime(50);
-
 
 if __name__ == '__main__':
     main()

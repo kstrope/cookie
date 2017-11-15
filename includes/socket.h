@@ -33,6 +33,8 @@ typedef uint8_t socket_t;
 // State of a socket. 
 typedef struct socket_store_t{
     uint8_t flag;
+    uint8_t inUse;
+    socket_t fd;
     enum socket_state state;
     socket_port_t src;
     socket_addr_t dest;

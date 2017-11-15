@@ -12,6 +12,7 @@
 #include "includes/CommandMsg.h"
 #include "includes/sendInfo.h"
 #include "includes/channels.h"
+#include "includes/socket.h"
 #define INFINITY 65535
 
 //define the type Neighbor with the Node ID and number of pings to it
@@ -53,6 +54,9 @@ module Node{
    uses interface List<LinkState> as Tentative;
    uses interface List<LinkState> as Temp;
 
+   //number of sockets for node, whether server or client
+   //uses interface List<socket_store_t> as Sockets;
+
    uses interface Hashmap<int> as nextTable;
 
    uses interface SplitControl as AMControl;
@@ -61,6 +65,7 @@ module Node{
    uses interface SimpleSend as Sender;
 
    uses interface CommandHandler;
+   uses interface Transport;
 
 }
 
@@ -115,8 +120,8 @@ implementation{
 	if (accessCounter > 1 && accessCounter % 3 == 0 && accessCounter < 16){
 		floodLSP();
 		//algorithm(TOS_NODE_ID, 0, 0, 0, call Neighbors.size());
-		if (TOS_NODE_ID == 1) 		
-			printLSP();
+		//if (TOS_NODE_ID == 1) 		
+			//printLSP();
 		//findNext();
 	}
 	if (accessCounter > 1 && accessCounter % 20 == 0 && accessCounter < 61)
@@ -417,9 +422,32 @@ implementation{
 
    event void CommandHandler.printDistanceVector(){}
 
-   event void CommandHandler.setTestServer(){}
+   event void CommandHandler.setTestServer(uint16_t port){
+	socket_addr_t address;
+	socket_t fd = call Transport.socket();
+	address.addr = TOS_NODE_ID;
+	address.port = port;
+	if (call Transport.bind(fd, &address) == SUCCESS) {
+		dbg(TRANSPORT_CHANNEL, "yay\n");
+	}
 
-   event void CommandHandler.setTestClient(){}
+	dbg(TRANSPORT_CHANNEL, "Node %d set as server with port %d\n", TOS_NODE_ID, port);
+	dbg(TRANSPORT_CHANNEL, "fd is %d\n", fd);
+   }
+
+   event void CommandHandler.setTestClient(uint16_t dest, uint16_t sourcePort, uint16_t destPort, uint16_t transfer){
+	socket_addr_t address;
+	socket_addr_t serverAddress;
+	socket_t fd = call Transport.socket();
+	address.addr = TOS_NODE_ID;
+	address.port = sourcePort;
+	serverAddress.addr = dest;
+	serverAddress.port = destPort;
+	if (call Transport.bind(fd, &address) == SUCCESS) {
+		dbg(TRANSPORT_CHANNEL, "client yay\n");
+	}
+	dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
+   }
 
    event void CommandHandler.setAppServer(){}
 
@@ -447,7 +475,7 @@ implementation{
 				//dbg(GENERAL_CHANNEL, "Neighbor at %d\n", temp.Neighbors[j]);
 			}
 		}
-		dbg(GENERAL_CHANNEL, "size is %d\n", call RoutingTable.size());
+		//dbg(GENERAL_CHANNEL, "size is %d\n", call RoutingTable.size());
 	}
 
 

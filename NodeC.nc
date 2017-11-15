@@ -18,6 +18,9 @@ implementation {
     components Node;
     components new TimerMilliC() as PeriodicTimerC;
     components new AMReceiverC(AM_PACK) as GeneralReceive;
+    components TransportC;
+
+    Node.Transport -> TransportC;
 
     Node -> MainC.Boot;
 
@@ -53,6 +56,9 @@ implementation {
 
     components new ListC(LinkState, 64) as TempC;
     Node.Temp -> TempC;
+
+    //components new ListC(socket_store_t, 64) as SocketsC;
+    //Node.Sockets -> SocketsC;
 
     components new HashmapC(int, 64) as nextTableC;
     Node.nextTable -> nextTableC;
