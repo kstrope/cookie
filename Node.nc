@@ -341,7 +341,7 @@ implementation{
 			}
 			else if (myMsg->dest == TOS_NODE_ID && myMsg->protocol == PROTOCOL_TCP) {
 				dbg(TRANSPORT_CHANNEL, "protocol is TCP!\n");
-				if (myMsg->seq == 1)
+				//if (myMsg->seq == 1)
 				
 			}
 			else {
@@ -438,6 +438,7 @@ implementation{
 	if (call Transport.listen(fd) == SUCCESS) {
 		dbg(TRANSPORT_CHANNEL, "listening...\n");
 	}
+	
 	dbg(TRANSPORT_CHANNEL, "Node %d set as server with port %d\n", TOS_NODE_ID, port);
 	dbg(TRANSPORT_CHANNEL, "fd is %d\n", fd);
    }
@@ -457,7 +458,7 @@ implementation{
 	}
 	//send SYN packet
 	call Transport.connect(fd, &serverAddress); 
-	//
+
 	dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
    }
 

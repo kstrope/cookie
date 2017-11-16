@@ -91,7 +91,34 @@ implementation {
     *    a destination associated with the destination address and port.
     *    if not return a null socket.
     */
-   command socket_t Transport.accept(socket_t fd) {}
+   command socket_t Transport.accept(socket_t fd) {
+	socket_store_t temp;
+	socket_t rt;
+	bool found = FALSE;
+	uint16_t at;
+	uint16_t i = 0;
+	for(i = 0; i < call Sockets.size(); i++)
+	{
+		temp = call Sockets.get(i);
+		if(temp.fd == fd && found == FALSE && temp.state == LISTEN)
+		{
+			found = TRUE;
+			at = i;
+		}
+	}
+	if(found == TRUE)
+	{
+		//return socket_t with stuff
+		temp = call Sockets.get(at);
+		rt = temp.fd;
+		return rt;
+	}
+	else
+	{
+		return NULL;
+	}
+			
+   }
 
    /**
     * Write to the socket from a buffer. This data will eventually be
@@ -180,7 +207,37 @@ implementation {
     * @return socket_t - returns SUCCESS if you are able to attempt
     *    a closure with the fd passed, else return FAIL.
     */
-   command error_t Transport.close(socket_t fd) {}
+   command error_t Transport.close(socket_t fd) {
+	socket_store_t temp;
+	uint16_t i, at;
+	error_t success;
+	bool able = FALSE;
+	while(!call Sockets.isEmpty())
+	{
+		temp = call Sockets.front();
+		call Sockets.popfront();
+		if(temp.fd == fd)
+		{
+			temp.state = CLOSED;
+			able = TRUE;
+		}
+		call TempSockets.pushfront(temp);
+	}
+	while(!call TempSockets.isEmpty())
+	{
+		call Sockets.pushfront(call TempSockets.front());
+		call TempSockets.popfront();
+	}
+	if(able == TRUE)
+	{
+		return success = SUCCESS;
+	}
+	else
+	{
+		return success = FAIL;
+	}
+	
+   }
 
    /**
     * A hard close, which is not graceful. This portion is optional.
