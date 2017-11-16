@@ -8,6 +8,8 @@ module TransportP {
 
 	uses interface List<socket_store_t> as Sockets;
 	uses interface List<socket_store_t> as TempSockets;
+	uses interface SimpleSend as Sender;
+	uses interface List<LinkState> as Confirmed;
 }
 
 implementation {
@@ -150,7 +152,23 @@ implementation {
     *    a connection with the fd passed, else return FAIL.
     */
    command error_t Transport.connect(socket_t fd, socket_addr_t * addr) {
+		pack syn;
+		uint16_t next;
+		uint16_t i;
+		LinkState destination;
+		syn.dest = addr->addr;
+		syn.src = TOS_NODE_ID;
+		//dbg(TRANSPORT_CHANNEL, "TOS_NODE_ID = %d\n", TOS_NODE_ID);
+		syn.seq = 1;
+		syn.TTL = MAX_TTL;
+		syn.protocol = 4;
 		
+		for (i = 0; i < call Confirmed.size(); i++) {
+			destination = call Confirmed.get(i);
+			if (syn.dest == destination.Dest)
+				next = destination.Next;
+		}
+		call Sender.send(syn, next);
 	}
 
    /**

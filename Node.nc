@@ -55,7 +55,7 @@ module Node{
    uses interface List<LinkState> as Temp;
 
    //number of sockets for node, whether server or client
-   //uses interface List<socket_store_t> as Sockets;
+   uses interface List<socket_store_t> as Sockets;
 
    uses interface Hashmap<int> as nextTable;
 
@@ -275,7 +275,7 @@ implementation{
 					}
 				}
 				//if we didn't find a match
-				if (!found && myMsg->protocol != PROTOCOL_LINKSTATE)
+				if (!found && myMsg->protocol != PROTOCOL_LINKSTATE && myMsg->protocol != PROTOCOL_TCP)
 				{
 					//add it to the list, using the memory of a previous dropped node
 					Neighbor1 = call NeighborsDropped.get(0);
@@ -338,6 +338,11 @@ implementation{
 			else if((myMsg->dest == TOS_NODE_ID) && myMsg->protocol == PROTOCOL_PINGREPLY) {
 				//the packet is at the right destination, and it is simply a reply, we can stop sending the packet here
 				dbg(FLOODING_CHANNEL, "Recieved a reply it was delivered from %d!\n", myMsg->src);
+			}
+			else if (myMsg->dest == TOS_NODE_ID && myMsg->protocol == PROTOCOL_TCP) {
+				dbg(TRANSPORT_CHANNEL, "protocol is TCP!\n");
+				if (myMsg->seq == 1)
+				
 			}
 			else {
 				//uint16_t y,SEND;
@@ -451,7 +456,7 @@ implementation{
 		dbg(TRANSPORT_CHANNEL, "client yay\n");
 	}
 	//send SYN packet
-	//makePack(&syn, TOS_NODE_ID, dest, MAX_TTL, PROTOCOL_TCP, 
+	call Transport.connect(fd, &serverAddress); 
 	//
 	dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
    }
