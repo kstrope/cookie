@@ -61,6 +61,9 @@ implementation {
 
     components new ListC(socket_store_t, 10) as SocketsC;
     Node.Sockets -> SocketsC;
+    
+    components new ListC(socket_store_t, 10) as TempSocketsC;
+    Node.TempSockets -> TempSocketsC;
 
     components new HashmapC(int, 64) as nextTableC;
     Node.nextTable -> nextTableC;
