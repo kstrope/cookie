@@ -51,7 +51,7 @@ typedef struct socket_store_t{
     uint8_t lastRcvd;
     uint8_t nextExpected;
 
-    uint16_t RTT;
+    uint16_t RTT; //set the timeout to 2*RTT
     uint8_t effectiveWindow;
 }socket_store_t;
 
