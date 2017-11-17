@@ -427,40 +427,79 @@ implementation{
 
    event void CommandHandler.printDistanceVector(){}
 
-   event void CommandHandler.setTestServer(uint16_t port){
-	socket_addr_t address;
-	socket_t fd = call Transport.socket();
-	address.addr = TOS_NODE_ID;
-	address.port = port;
-	if (call Transport.bind(fd, &address) == SUCCESS) {
-		dbg(TRANSPORT_CHANNEL, "yay\n");
-	}
-	if (call Transport.listen(fd) == SUCCESS) {
-		dbg(TRANSPORT_CHANNEL, "listening...\n");
-	}
+	event void CommandHandler.setTestServer(uint16_t port){
+		socket_addr_t address;
+		socket_t fd = call Transport.socket();
+		address.addr = TOS_NODE_ID;
+		address.port = port;
+		if (call Transport.bind(fd, &address) == SUCCESS) {
+			dbg(TRANSPORT_CHANNEL, "yay\n");
+		}
+		if (call Transport.listen(fd) == SUCCESS) {
+			dbg(TRANSPORT_CHANNEL, "listening...\n");
+		}
 	
-	dbg(TRANSPORT_CHANNEL, "Node %d set as server with port %d\n", TOS_NODE_ID, port);
-	dbg(TRANSPORT_CHANNEL, "fd is %d\n", fd);
-   }
-
-   event void CommandHandler.setTestClient(uint16_t dest, uint16_t sourcePort, uint16_t destPort, uint16_t transfer){
-	pack syn;
-	socket_store_t synSocket;
-	socket_addr_t address;
-	socket_addr_t serverAddress;
-	socket_t fd = call Transport.socket();
-	address.addr = TOS_NODE_ID;
-	address.port = sourcePort;
-	serverAddress.addr = dest;
-	serverAddress.port = destPort;
-	if (call Transport.bind(fd, &address) == SUCCESS) {
-		dbg(TRANSPORT_CHANNEL, "client yay\n");
+		dbg(TRANSPORT_CHANNEL, "Node %d set as server with port %d\n", TOS_NODE_ID, port);
+		dbg(TRANSPORT_CHANNEL, "fd is %d\n", fd);
 	}
-	//send SYN packet
-	call Transport.connect(fd, &serverAddress); 
 
-	dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
-   }
+	event void CommandHandler.setTestClient(uint16_t dest, uint16_t sourcePort, uint16_t destPort, uint16_t transfer){
+		pack syn;
+		uint8_t buff[16];
+		uint8_t buff2[113];
+		uint8_t buff3[15];
+		uint8_t i;
+		uint16_t test;
+		socket_store_t synSocket;
+		socket_addr_t address;
+		socket_addr_t serverAddress;
+		socket_t fd = call Transport.socket();
+		address.addr = TOS_NODE_ID;
+		address.port = sourcePort;
+		serverAddress.addr = dest;
+		serverAddress.port = destPort;
+
+		if (call Transport.bind(fd, &address) == SUCCESS) {
+			dbg(TRANSPORT_CHANNEL, "client yay\n");
+		}
+		//send SYN packet
+		call Transport.connect(fd, &serverAddress);
+		dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
+
+
+		for(i = 0; i < 16; i++)
+		{
+		        buff[i] = i+1;
+		}
+
+		for(i = 0; i < 15; i++)
+		{
+			buff3[i] = i+1;
+		}
+
+		test = call Transport.write(fd, buff, 16);
+
+		printf("test is: %d\n", test);
+
+		printf("testing again...\n");
+
+		test = call Transport.write(fd, buff3, 15);
+
+		printf("test is: %d\n", test);
+
+		printf("testing again...\n");
+
+		for(i = 0; i < 113; i++)
+		{
+			buff2[i] = i+1;
+		}
+
+		test = call Transport.write(fd, buff2, 113);
+
+		printf("test is: %d\n", test);
+
+		
+	}
 
    event void CommandHandler.setAppServer(){}
 

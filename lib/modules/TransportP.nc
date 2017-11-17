@@ -26,6 +26,8 @@ implementation {
 	socket_store_t insert;
 	if (call Sockets.size() < MAX_NUM_OF_SOCKETS) {
 		insert.fd = call Sockets.size();
+		insert.effectiveWindow = 128;
+		insert.lastWritten = 0;
 		fd = call Sockets.size();
 		call Sockets.pushback(insert);
 	}
@@ -135,7 +137,79 @@ implementation {
     * @return uint16_t - return the amount of data you are able to write
     *    from the pass buffer. This may be shorter then bufflen
     */
-   command uint16_t Transport.write(socket_t fd, uint8_t *buff, uint16_t bufflen) {}
+	command uint16_t Transport.write(socket_t fd, uint8_t *buff, uint16_t bufflen) {
+		socket_store_t temp, temp2;
+		uint16_t sockLen = call Sockets.size();
+		uint16_t i,j,at,buffcount;
+		uint8_t buffsize;
+		bool found = FALSE;
+		for(i = 0; i < sockLen; i++)
+		{
+			temp = call Sockets.get(i);
+			if(temp.fd == fd && found == FALSE)
+			{
+				at = i;
+				found = TRUE;
+			}
+		}
+		if(found == FALSE)
+		{
+			return 0;
+		}
+		else
+		{
+			temp = call Sockets.get(at);
+			if(bufflen > temp.effectiveWindow)
+			{
+				return 0;
+			}
+			else
+			{
+				buffcount = 0;
+				j = temp.lastWritten;
+				printf("lastWritten is %d\n", j);
+				for(i = 0; i < bufflen; i++)
+				{
+					//temp.lastWritten++;
+					temp.sendBuff[j] = buff[i];
+					j++;
+					buffcount++;
+					temp.effectiveWindow--;
+				}
+				temp.lastWritten = j;
+				printf("lastWritten is %d\n", j);
+				//temp.lastSent = j;
+
+                                printf("printing current buffer\n");
+				printf("----------------\n");
+                                for(i = 0; i < 31; i++)
+                                {
+                                        printf("%d\n", temp.sendBuff[i]);
+                                }
+				printf("----------------\n");
+
+				while(!call Sockets.isEmpty())
+				{
+					temp2 = call Sockets.front();
+					if(temp.fd == temp2.fd)
+					{
+						call TempSockets.pushfront(temp);
+					}
+					else
+					{
+						call TempSockets.pushfront(temp2);
+					}
+					call Sockets.popfront();
+				}
+				while(!call TempSockets.isEmpty())
+				{
+					call Sockets.pushfront(call TempSockets.front());
+					call TempSockets.popfront();
+				}
+				return buffcount;
+			}
+		}
+	}
 
    /**
     * This will pass the packet so you can handle it internally. 
@@ -145,8 +219,18 @@ implementation {
     * @return uint16_t - return SUCCESS if you are able to handle this
     *    packet or FAIL if there are errors.
     */
-   command error_t Transport.receive(pack* package) {
-	
+	command error_t Transport.receive(pack* package) {
+		error_t result;
+		if(package->protocol != PROTOCOL_TCP)
+		{
+			result = FAIL;
+			return result;
+		}
+		else
+		{
+			result = SUCCESS;
+			return result;
+		}
 	}
 
    /**
@@ -164,7 +248,69 @@ implementation {
     * @return uint16_t - return the amount of data you are able to read
     *    from the pass buffer. This may be shorter then bufflen
     */
-   command uint16_t Transport.read(socket_t fd, uint8_t *buff, uint16_t bufflen) {}
+	command uint16_t Transport.read(socket_t fd, uint8_t *buff, uint16_t bufflen) {
+		socket_store_t temp, temp2;
+		uint16_t sockLen = call Sockets.size();
+		uint16_t i, j, at, buffcount;
+		uint8_t buffsize;
+		bool found = FALSE;
+		for(i = 0; i < sockLen; i++)
+		{
+			temp = call Sockets.get(i);
+			if(temp.fd == fd && found == FALSE)
+			{
+				at = i;
+				found = TRUE;
+			}
+		}
+		if(found == FALSE)
+		{
+			return 0;
+		}
+		else
+		{
+			//do buffer things
+			temp = call Sockets.get(at);
+			buffcount = 0;
+			buffsize = sizeof(buff);
+			if(buffsize > bufflen)
+			{
+				return 0;
+			}
+			else
+			{
+				j = temp.nextExpected;
+				for(i = 0; i < buffsize; i++)
+				{
+					temp.rcvdBuff[j] = buff[i];
+					j++;
+					buffcount++;
+				}
+				//temp.lastRead = j;
+				temp.lastRcvd = j;
+				temp.nextExpected = j+1;
+				while(!call Sockets.isEmpty())
+				{
+					temp2 = call Sockets.front();
+					if(temp.fd != temp2.fd)
+					{
+						call TempSockets.pushfront(call Sockets.front());
+					}
+					else
+					{
+						call TempSockets.pushfront(temp);
+					}
+					call Sockets.popfront();
+				}
+				while(!call TempSockets.isEmpty())
+				{
+					call Sockets.pushfront(call TempSockets.front());
+					call TempSockets.popfront();
+				}
+				return buffcount;
+			}
+		}
+	}
 
    /**
     * Attempts a connection to an address.
@@ -207,37 +353,37 @@ implementation {
     * @return socket_t - returns SUCCESS if you are able to attempt
     *    a closure with the fd passed, else return FAIL.
     */
-   command error_t Transport.close(socket_t fd) {
-	socket_store_t temp;
-	uint16_t i, at;
-	error_t success;
-	bool able = FALSE;
-	while(!call Sockets.isEmpty())
+	command error_t Transport.close(socket_t fd)
 	{
-		temp = call Sockets.front();
-		call Sockets.popfront();
-		if(temp.fd == fd)
+		socket_store_t temp;
+		uint16_t i, at;
+		error_t success;
+		bool able = FALSE;
+		while(!call Sockets.isEmpty())
 		{
-			temp.state = CLOSED;
-			able = TRUE;
+			temp = call Sockets.front();
+			call Sockets.popfront();
+			if(temp.fd == fd)
+			{
+				temp.state = CLOSED;
+				able = TRUE;
+			}
+			call TempSockets.pushfront(temp);
 		}
-		call TempSockets.pushfront(temp);
+		while(!call TempSockets.isEmpty())
+		{
+			call Sockets.pushfront(call TempSockets.front());
+			call TempSockets.popfront();
+		}
+		if(able == TRUE)
+		{
+			return success = SUCCESS;
+		}
+		else
+		{
+			return success = FAIL;
+		}
 	}
-	while(!call TempSockets.isEmpty())
-	{
-		call Sockets.pushfront(call TempSockets.front());
-		call TempSockets.popfront();
-	}
-	if(able == TRUE)
-	{
-		return success = SUCCESS;
-	}
-	else
-	{
-		return success = FAIL;
-	}
-	
-   }
 
    /**
     * A hard close, which is not graceful. This portion is optional.
@@ -259,32 +405,33 @@ implementation {
     * @return error_t - returns SUCCESS if you are able change the state 
     *   to listen else FAIL.
     */
-   command error_t Transport.listen(socket_t fd) {
-	socket_store_t temp;
-	enum socket_state tempState;
-	error_t success;
-	bool found = FALSE;
-	while (!call Sockets.isEmpty()) {
-		temp = call Sockets.front();
-		call Sockets.popfront();
-		if (temp.fd == fd && !found) {
-			tempState = LISTEN;
-			temp.state = tempState;
-			found = TRUE;
-			dbg(TRANSPORT_CHANNEL, "fd found, changing state to %d\n", temp.state);
-			call TempSockets.pushfront(temp);
+	command error_t Transport.listen(socket_t fd)
+	{
+		socket_store_t temp;
+		enum socket_state tempState;
+		error_t success;
+		bool found = FALSE;
+		while (!call Sockets.isEmpty()) {
+			temp = call Sockets.front();
+			call Sockets.popfront();
+			if (temp.fd == fd && !found) {
+				tempState = LISTEN;
+				temp.state = tempState;
+				found = TRUE;
+				dbg(TRANSPORT_CHANNEL, "fd found, changing state to %d\n", temp.state);
+				call TempSockets.pushfront(temp);
+			}
+			else {
+				call TempSockets.pushfront(temp);
+			}
 		}
-		else {
-			call TempSockets.pushfront(temp);
+		while (!call TempSockets.isEmpty()) {
+			call Sockets.pushfront(call TempSockets.front());
+			call TempSockets.popfront();
 		}
-	}
-	while (!call TempSockets.isEmpty()) {
-		call Sockets.pushfront(call TempSockets.front());
-		call TempSockets.popfront();
-	}
-	if (found == TRUE)
-		return success = SUCCESS;
-	else
-		return success = FAIL;
+		if (found == TRUE)
+			return success = SUCCESS;
+		else
+			return success = FAIL;
 	}
 }
