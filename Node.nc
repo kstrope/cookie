@@ -56,6 +56,8 @@ module Node{
 
    //number of sockets for node, whether server or client
    uses interface List<socket_store_t> as Sockets;
+   
+   uses interface List<socket_store_t> as TempSockets;
 
    uses interface Hashmap<int> as nextTable;
 
@@ -340,9 +342,146 @@ implementation{
 				dbg(FLOODING_CHANNEL, "Recieved a reply it was delivered from %d!\n", myMsg->src);
 			}
 			else if (myMsg->dest == TOS_NODE_ID && myMsg->protocol == PROTOCOL_TCP) {
-				dbg(TRANSPORT_CHANNEL, "protocol is TCP!\n");
-				//if (myMsg->seq == 1)
-				
+				 uint16_t i;
+				 uint16_t j;
+				 uint16_t RTT1;
+				 bool found;
+ 				LinkState destination;
+ 				uint16_t next;
+ 				pack SynAck;
+				socket_store_t* temp;
+				socket_store_t temp2;
+				socket_store_t SynAckTemp;
+				socket_store_t change;
+				socket_addr_t tempAddr;
+ 				temp = myMsg->payload;
+ 				tempAddr = temp->dest;
+ 				//dbg(TRANSPORT_CHANNEL, "protocol is TCP! temp->flag = %d, temp->src = %d, temp->dest.port = %d, temp->dest.addr = %d\n", temp->flag, temp->src, tempAddr.port, tempAddr.addr);
+ 				for (i = 0; i < call Sockets.size(); i++) {
+			         	temp2 = call Sockets.get(i);
+			         	if (temp->flag == 1 && tempAddr.port == temp2.src && temp2.state == LISTEN && tempAddr.addr == TOS_NODE_ID) {
+                 			dbg(TRANSPORT_CHANNEL, "Syn packet recieved into port %d\n", temp2.src);
+                 			SynAck.dest = myMsg->src;
+                 			SynAck.src = TOS_NODE_ID;
+                 			SynAck.seq = myMsg->seq + 1;
+                 			SynAck.TTL = myMsg->TTL;
+                 			SynAck.protocol = 4;
+                 			SynAckTemp = call Sockets.get(i);
+                 			SynAckTemp.flag = 2;
+                 			SynAckTemp.dest.port = temp->src;
+                 			SynAckTemp.dest.addr = myMsg->src;
+
+                 			memcpy(SynAck.payload, &SynAckTemp, (uint8_t) sizeof(SynAckTemp));
+
+                 			for (j = 0; j < call Confirmed.size(); j++) {
+                         			destination = call Confirmed.get(j);
+                         			if (SynAck.dest == destination.Dest)
+                                 			next = destination.Next;
+                 			}
+                			 while (!call Sockets.isEmpty()) {
+                         			change = call Sockets.front();
+                         			call Sockets.popfront();
+                         			if (change.fd == i && !found) {
+                                 			change.state = SYN_RCVD;
+                                 			found = TRUE;
+                                 			call TempSockets.pushfront(change);
+                         			}
+                         			else {
+                                 			call TempSockets.pushfront(change);
+                         			}
+                 			}
+                 			while (!call TempSockets.isEmpty() ) {
+                         			call Sockets.pushfront(call TempSockets.front());
+                         			call TempSockets.popfront();
+                 			}
+                 			call Sender.send(SynAck, next);
+         			}
+         			if (temp->flag == 2 && tempAddr.port == temp2.src) {
+                			 recieveTime = call LocalTime.get();
+				         RTT1 = recieveTime - sendTime;
+        				dbg(TRANSPORT_CHANNEL, "SynAck packet recived into port %d, send = %d, recieve = %d, RTT = %d\n", sendTime, recieveTime, temp2.src, RTT1);
+        				SynAck.dest = myMsg->src;
+        				SynAck.src = TOS_NODE_ID;
+        				SynAck.seq = myMsg->seq + 1;
+        				SynAck.TTL = myMsg->TTL;
+        				SynAck.protocol = 4;
+        				SynAckTemp = call Sockets.get(i);
+       					SynAckTemp.flag = 3;
+        				SynAckTemp.dest.port = temp->src;
+        				SynAckTemp.dest.addr = myMsg->src;
+
+        				memcpy(SynAck.payload, &SynAckTemp, (uint8_t) sizeof(SynAckTemp));
+
+         				for (j = 0; j < call Confirmed.size(); j++) {
+                 				destination = call Confirmed.get(j);
+                 				if (SynAck.dest == destination.Dest)
+                         				next = destination.Next;
+                				}
+        				while (!call Sockets.isEmpty()) {
+                				change = call Sockets.front();
+                				call Sockets.popfront();
+                 				if (change.fd == i && !found) {
+                        				change.state = ESTABLISHED;
+                        				change.RTT = RTT1;
+                        				found = TRUE;
+                        				call TempSockets.pushfront(change);
+                				}
+                				else {
+                        				call TempSockets.pushfront(change);
+                				}
+        				}
+       					while (!call TempSockets.isEmpty() ) {
+                				call Sockets.pushfront(call TempSockets.front());
+                				call TempSockets.popfront();
+        				}
+        				sendTime2 = call LocalTime.get();
+        				call Sender.send(SynAck, next);
+				}
+				if (temp->flag == 3 && tempAddr.port == temp2.src) {
+        				recieveTime2 = call LocalTime.get();
+        				while (!call Sockets.isEmpty()) {
+                				change = call Sockets.front();
+                				call Sockets.popfront();
+                				if (change.fd == i && !found) {
+                       				change.state = ESTABLISHED;
+                       				RTTtemp = change.RTT;
+                       				found = TRUE;
+                       				call TempSockets.pushfront(change);
+                				}
+               					else {
+                       					call TempSockets.pushfront(change);
+                				}
+        				}
+        				while (!call TempSockets.isEmpty() ) {
+						call Sockets.pushfront(call TempSockets.front());
+						call TempSockets.popfront();
+                        		}
+                       			sendTime2 = call LocalTime.get();
+                        		call Sender.send(SynAck, next);
+                		}
+               			if (temp->flag == 3 && tempAddr.port == temp2.src) {
+                        		recieveTime2 = call LocalTime.get();
+                        		while (!call Sockets.isEmpty()) {
+                                		change = call Sockets.front();
+                                		call Sockets.popfront();
+                                		if (change.fd == i && !found) {
+                                       			change.state = ESTABLISHED;
+                                       			RTTtemp = change.RTT;
+                                       			found = TRUE;
+                                       			call TempSockets.pushfront(change);
+                                	}
+                                else {
+                                       call TempSockets.pushfront(change);
+                                }
+                        }
+                        while (!call TempSockets.isEmpty() ) {
+                                call Sockets.pushfront(call TempSockets.front());
+                                call TempSockets.popfront();
+                        }
+                        dbg(TRANSPORT_CHANNEL, "Ack packet recieved into port %d\n", temp2.src);
+                			}
+        			}
+
 			}
 			else {
 				//uint16_t y,SEND;
