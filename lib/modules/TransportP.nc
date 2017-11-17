@@ -61,7 +61,7 @@ implementation {
 		if (temp.fd == fd && !found) {
 			tempAddr.port = addr->port;
 			tempAddr.addr = addr->addr;
-			temp.dest = tempAddr;
+			temp.src = tempAddr.port;
 			found = TRUE;
 			dbg(TRANSPORT_CHANNEL, "fd found, inserting addr of node %d port %d\n", tempAddr.addr, tempAddr.port);
 			call TempSockets.pushfront(temp);
@@ -326,6 +326,7 @@ implementation {
     */
    command error_t Transport.connect(socket_t fd, socket_addr_t * addr) {
 		pack syn;
+		socket_store_t temp;
 		uint16_t next;
 		uint16_t i;
 		LinkState destination;
@@ -335,6 +336,10 @@ implementation {
 		syn.seq = 1;
 		syn.TTL = MAX_TTL;
 		syn.protocol = 4;
+		temp = call Sockets.get(fd);
+		temp.flag = 1;
+		temp.dest.port = addr->port;
+		temp.dest.addr = addr->addr;
 		
 		for (i = 0; i < call Confirmed.size(); i++) {
 			destination = call Confirmed.get(i);
