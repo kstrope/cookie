@@ -137,80 +137,79 @@ implementation {
     * @return uint16_t - return the amount of data you are able to write
     *    from the pass buffer. This may be shorter then bufflen
     */
-	command uint16_t Transport.write(socket_t fd, uint8_t *buff, uint16_t bufflen) {
-		socket_store_t temp, temp2;
-		uint16_t sockLen = call Sockets.size();
-		uint16_t i,j,at,buffcount;
-		uint8_t buffsize;
-		bool found = FALSE;
-		for(i = 0; i < sockLen; i++)
-		{
-			temp = call Sockets.get(i);
-			if(temp.fd == fd && found == FALSE)
-			{
-				at = i;
-				found = TRUE;
-			}
-		}
-		if(found == FALSE)
-		{
-			return 0;
-		}
-		else
-		{
-			temp = call Sockets.get(at);
-			if(bufflen > temp.effectiveWindow)
-			{
-				return 0;
-			}
-			else
-			{
-				buffcount = 0;
-				j = temp.lastWritten;
-				printf("lastWritten is %d\n", j);
-				for(i = 0; i < bufflen; i++)
-				{
-					//temp.lastWritten++;
-					temp.sendBuff[j] = buff[i];
-					j++;
-					buffcount++;
-					temp.effectiveWindow--;
-				}
-				temp.lastWritten = j;
-				printf("lastWritten is %d\n", j);
-				//temp.lastSent = j;
+            command uint16_t Transport.write(socket_t fd, uint8_t *buff, uint16_t bufflen) {
+                socket_store_t temp, temp2;
+                uint16_t sockLen = call Sockets.size();
+                uint16_t i,j,at,buffcount;
+                uint8_t buffsize, buffable, buffto;
+                bool found = FALSE;
+                for(i = 0; i < sockLen; i++)
+                {
+                        temp = call Sockets.get(i);
+                        if(temp.fd == fd && found == FALSE)
+                        {
+                                at = i;
+                                found = TRUE;
+                        }
+                }
+                if(found == FALSE)
+                {
+                        return 0;
+                }
+                else
+                {
+                        temp = call Sockets.get(at);
+                        if(bufflen > (128 - temp.lastWritten))
+                        {
+                                buffable = 128 - temp.lastWritten;
+                        }
+                        else
+                        {
+                                buffable = bufflen;
+                        }
+                        buffcount = 0;
+                        buffto = temp.lastWritten + buffable;
+                        j = temp.lastSent;
+                        for(i = temp.lastWritten; i < buffto; i++)
+                        {
+                                //temp.lastWritten++;
+                                temp.sendBuff[i] = j;
+                                j++;
+                                buffcount++;
+                        }
+                        temp.lastWritten = i;
+                        temp.lastSent = j;
 
-                                printf("printing current buffer\n");
-				printf("----------------\n");
-                                for(i = 0; i < 31; i++)
+                        printf("printing current buffer\n");
+                        printf("----------------\n");
+                        for(i = 0; i < 128; i++)
+                        {
+                                printf("%d\n", temp.sendBuff[i]);
+                        }
+                        printf("----------------\n");
+
+
+                        while(!call Sockets.isEmpty())
+                        {
+                                temp2 = call Sockets.front();
+                                if(temp.fd == temp2.fd)
                                 {
-                                        printf("%d\n", temp.sendBuff[i]);
+                                        call TempSockets.pushfront(temp);
                                 }
-				printf("----------------\n");
-
-				while(!call Sockets.isEmpty())
-				{
-					temp2 = call Sockets.front();
-					if(temp.fd == temp2.fd)
-					{
-						call TempSockets.pushfront(temp);
-					}
-					else
-					{
-						call TempSockets.pushfront(temp2);
-					}
-					call Sockets.popfront();
-				}
-				while(!call TempSockets.isEmpty())
-				{
-					call Sockets.pushfront(call TempSockets.front());
-					call TempSockets.popfront();
-				}
-				return buffcount;
-			}
-		}
-	}
-
+                                else
+                                {
+                                        call TempSockets.pushfront(temp2);
+                                }
+                                call Sockets.popfront();
+                        }
+                        while(!call TempSockets.isEmpty())
+                        {
+                                call Sockets.pushfront(call TempSockets.front());
+                                call TempSockets.popfront();
+                        }
+                        return buffcount;
+                }
+        }
    /**
     * This will pass the packet so you can handle it internally. 
     * @param
@@ -248,69 +247,83 @@ implementation {
     * @return uint16_t - return the amount of data you are able to read
     *    from the pass buffer. This may be shorter then bufflen
     */
-	command uint16_t Transport.read(socket_t fd, uint8_t *buff, uint16_t bufflen) {
-		socket_store_t temp, temp2;
-		uint16_t sockLen = call Sockets.size();
-		uint16_t i, j, at, buffcount;
-		uint8_t buffsize;
-		bool found = FALSE;
-		for(i = 0; i < sockLen; i++)
-		{
-			temp = call Sockets.get(i);
-			if(temp.fd == fd && found == FALSE)
-			{
-				at = i;
-				found = TRUE;
-			}
-		}
-		if(found == FALSE)
-		{
-			return 0;
-		}
-		else
-		{
-			//do buffer things
-			temp = call Sockets.get(at);
-			buffcount = 0;
-			buffsize = sizeof(buff);
-			if(buffsize > bufflen)
-			{
-				return 0;
-			}
-			else
-			{
-				j = temp.nextExpected;
-				for(i = 0; i < buffsize; i++)
-				{
-					temp.rcvdBuff[j] = buff[i];
-					j++;
-					buffcount++;
-				}
-				//temp.lastRead = j;
-				temp.lastRcvd = j;
-				temp.nextExpected = j+1;
-				while(!call Sockets.isEmpty())
-				{
-					temp2 = call Sockets.front();
-					if(temp.fd != temp2.fd)
-					{
-						call TempSockets.pushfront(call Sockets.front());
-					}
-					else
-					{
-						call TempSockets.pushfront(temp);
-					}
-					call Sockets.popfront();
-				}
-				while(!call TempSockets.isEmpty())
-				{
-					call Sockets.pushfront(call TempSockets.front());
-					call TempSockets.popfront();
-				}
-				return buffcount;
-			}
-		}
-	}
+    
+        command uint16_t Transport.read(socket_t fd, uint8_t *buff, uint16_t bufflen) {
+                socket_store_t temp, temp2;
+                uint16_t sockLen = call Sockets.size();
+                uint16_t i, j, at, buffcount;
+                uint8_t buffsize, buffable, buffto;
+                bool found = FALSE;
+                for(i = 0; i < sockLen; i++)
+                {
+                        temp = call Sockets.get(i);
+                        if(temp.fd == fd && found == FALSE)
+                        {
+                                at = i;
+                                found = TRUE;
+                        }
+                }
+                if(found == FALSE)
+                {
+                        return 0;
+                }
+                else
+                {
+                        //do buffer things
+                        temp = call Sockets.get(at);
+                        buffcount = 0;
+                        buffsize = sizeof(buff);
+                        if(bufflen > temp.effectiveWindow)
+                        {
+                                buffable = temp.effectiveWindow;
+                        }
+                        else
+                        {
+                                buffable = bufflen;
+                        }
+                        j = temp.nextExpected;
+                        for(i = 0; i < buffable; i++)
+                        {
+                                temp.rcvdBuff[j] = temp.sendBuff[i];
+                                temp.sendBuff[i] = 255;
+                                j++;
+                                buffcount++;
+                                if(temp.effectiveWindow > 0)
+                                {
+                                        temp.effectiveWindow--;
+                                }
+                        }
+                        temp.lastRcvd = i;
+                        temp.lastWritten = 0;
+                        if(temp.effectiveWindow == 0)
+                        {
+                                temp.nextExpected = 0;
+                        }
+                        else
+                        {
+                                temp.nextExpected = j+1;
+                        }
+                        while(!call Sockets.isEmpty())
+                        {
+                                temp2 = call Sockets.front();
+                                if(temp.fd != temp2.fd)
+                                {
+                                        call TempSockets.pushfront(call Sockets.front());
+                                }
+                                else
+                                {
+				        call TempSockets.pushfront(temp);
+                                }
+                                call Sockets.popfront();
+                        }
+                        while(!call TempSockets.isEmpty())
+                        {
+                                call Sockets.pushfront(call TempSockets.front());
+                                call TempSockets.popfront();
+                        }
+                        return buffcount;
+                }
+        }
 
    /**
     * Attempts a connection to an address.
