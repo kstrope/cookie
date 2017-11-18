@@ -139,8 +139,10 @@ implementation {
     */
             command uint16_t Transport.write(socket_t fd, uint8_t *buff, uint16_t bufflen) {
                 socket_store_t temp, temp2;
+		LinkState destination;
+		pack write;
                 uint16_t sockLen = call Sockets.size();
-                uint16_t i,j,at,buffcount;
+                uint16_t i,j,at,buffcount,next;
                 uint8_t buffsize, buffable, buffto;
                 bool found = FALSE;
                 for(i = 0; i < sockLen; i++)
@@ -179,16 +181,17 @@ implementation {
                         }
                         temp.lastWritten = i;
                         temp.lastSent = j;
+			temp.flag = 4;
+			memcpy(write.payload, &temp, (uint8_t) sizeof(temp));
 
-                        printf("printing current buffer\n");
-                        printf("----------------\n");
-                        for(i = 0; i < 128; i++)
-                        {
-                                printf("%d\n", temp.sendBuff[i]);
-                        }
-                        printf("----------------\n");
+			for (i = 0; i < call Confirmed.size(); i++) {
+				destination = call Confirmed.get(i);
+				if (temp.dest.addr == destination.Dest) {
+					next = destination.Next;
+				}
+			}			
 
-
+			call Sender.send(write, next);
                         while(!call Sockets.isEmpty())
                         {
                                 temp2 = call Sockets.front();
@@ -303,6 +306,20 @@ implementation {
                         {
                                 temp.nextExpected = j+1;
                         }
+
+			dbg(TRANSPORT_CHANNEL, "printing out rcvdBuff\n");
+			for(i = 0; i < temp.lastRcvd; i++)
+			{
+				printf("%d, ", temp.rcvdBuff[i]);
+				if(i == 6)
+				{
+					printf("\n");
+				}
+				temp.rcvdBuff[i] = 255;
+			}
+			printf("\n");
+
+			//pushing stuff
                         while(!call Sockets.isEmpty())
                         {
                                 temp2 = call Sockets.front();

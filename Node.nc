@@ -155,6 +155,7 @@ implementation{
         	{
                 	found = TRUE;
                 	at = i;
+			printf("at is %d", at);
         	}
 	}
 	temp = call Sockets.get(at);
@@ -167,19 +168,27 @@ implementation{
 	uint16_t i;
 	uint16_t at;
 	bool found;
+	found = TRUE;
 	dbg(TRANSPORT_CHANNEL, "SendTimer fired for this node!\n");
+	printf("size is %d\n", call Sockets.size());
 	for(i = 0; i < call Sockets.size(); i++)
 	{
 		temp = call Sockets.get(i);
+		printf("temp fd is %d, global fd is %d\n", temp.fd, fd);
 		if(temp.fd == fd && found == FALSE && temp.state == ESTABLISHED)
 		{
 			found = TRUE;
 			at = i;
 		}
+		printf("is here\n");
 	}
 	temp = call Sockets.get(at);
+	printf("also here\n");
 	if (temp.lastWritten == 0)
+	{
+		printf("even here\n");
 		globalTransfer = globalTransfer - call Transport.write(fd, 0, globalTransfer);
+	}
    }
 
 
@@ -409,7 +418,7 @@ implementation{
 				socket_addr_t tempAddr;
  				temp = myMsg->payload;
  				tempAddr = temp->dest;
- 				//dbg(TRANSPORT_CHANNEL, "protocol is TCP! temp->flag = %d, temp->src = %d, temp->dest.port = %d, temp->dest.addr = %d\n", temp->flag, temp->src, tempAddr.port, tempAddr.addr);
+ 				dbg(TRANSPORT_CHANNEL, "protocol is TCP! temp->flag = %d, temp->src = %d, temp->dest.port = %d, temp->dest.addr = %d\n", temp->flag, temp->src, tempAddr.port, tempAddr.addr);
  				for (i = 0; i < call Sockets.size(); i++) {
 			         	temp2 = call Sockets.get(i);
 			         	if (temp->flag == 1 && tempAddr.port == temp2.src && temp2.state == LISTEN && tempAddr.addr == TOS_NODE_ID) {
@@ -646,7 +655,7 @@ implementation{
 			//dbg(TRANSPORT_CHANNEL, "yay\n");
 			if (call Transport.listen(fd) == SUCCESS) {
         			//dbg(TRANSPORT_CHANNEL, "listening...\n");
-        			call RecieveTimer.startOneShot(attemptTime + 2 * RTT);
+        			//call RecieveTimer.startOneShot(attemptTime + 2 * RTT);
 			}
 		}
 	}
@@ -672,7 +681,7 @@ implementation{
 			sendTime = call LocalTime.get();
 			//send SYN packet
 			if (call Transport.connect(fd, &serverAddress) == SUCCESS) {
-        			call SendTimer.startPeriodic(RTT * 3);
+        			//call SendTimer.startPeriodic(RTT * 500);
         			//dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
 			}
 		}
