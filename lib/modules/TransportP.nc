@@ -182,19 +182,24 @@ implementation {
                                 j++;
                                 buffcount++;
                         }
-			temp.dest.port = temp.dest.port;
-			temp.dest.addr = temp.dest.addr;
+			write.dest = temp.dest.addr;
+			write.TTL = MAX_TTL;
+			printf("write.dest is %d\n", write.dest);
                         temp.lastWritten = i;
                         temp.lastSent = j;
 			temp.flag = 4;
 			memcpy(write.payload, &temp, (uint8_t) sizeof(temp));
 
-			for (i = 0; i < call Confirmed.size(); i++) {
+			for (i = 0; i < call Confirmed.size(); i++)
+			{
 				destination = call Confirmed.get(i);
-				if (temp.dest.addr == destination.Dest) {
+				if (write.dest == destination.Dest)
+				{
+					printf("found dest\n");
 					next = destination.Next;
 				}
 			}			
+			call Sender.send(write, next);
 
                         while(!call Sockets.isEmpty())
                         {
@@ -214,6 +219,7 @@ implementation {
                                 call Sockets.pushfront(call TempSockets.front());
                                 call TempSockets.popfront();
                         }
+			printf("sending tooooo: %d\n", next);
 			call Sender.send(write, next);
 
                         return buffcount;
@@ -364,7 +370,7 @@ implementation {
 		pack syn;
 		error_t success;
 		bool sent;
-		socket_store_t temp;
+		socket_store_t temp, temp2;
 		uint16_t next;
 		uint16_t i;
 		LinkState destination;
@@ -378,6 +384,25 @@ implementation {
 		temp.flag = 1;
 		temp.dest.port = addr->port;
 		temp.dest.addr = addr->addr;
+
+		while(!call Sockets.isEmpty())
+		{
+			temp2 = call Sockets.front();
+			if(temp.fd == temp2.fd)
+			{
+				call TempSockets.pushfront(temp);
+			}
+			else
+			{
+				call TempSockets.pushfront(temp2);
+			}
+			call Sockets.popfront();
+		}
+		while(!call TempSockets.isEmpty())
+		{
+			call Sockets.pushfront(call TempSockets.front());
+			call TempSockets.popfront();
+		}
 
 		memcpy(syn.payload, &temp, (uint8_t) sizeof(temp));
 		
