@@ -14,7 +14,7 @@ class TestSim:
     CMD_ROUTE_DUMP= 3
     CMD_TEST_CLIENT = 4
     CMD_TEST_SERVER = 5
-
+    CMD_TEST_CLOSE = 7
     # CHANNELS - see includes/channels.h
     COMMAND_CHANNEL="command";
     GENERAL_CHANNEL="general";
@@ -128,6 +128,9 @@ class TestSim:
     def TestServer(self, address, port):
         self.sendCMD(self.CMD_TEST_SERVER, address, chr(port)),
 
+    def TestClose(self, address, sourcePort, destPort, dest):
+	self.sendCMD(self.CMD_TEST_CLOSE, address, "{0}{1}{2}".format(chr(sourcePort),chr(destPort),chr(dest)));
+
     def addChannel(self, channelName, out=sys.stdout):
         print 'Adding Channel', channelName;
         self.t.addChannel(channelName, out);
@@ -148,8 +151,10 @@ def main():
     s.runTime(1000);
     s.TestServer(2, 80);
     s.runTime(500);
-    s.TestClient(3, 65, 80, 2, 150);
+    s.TestClient(3, 65, 80, 2, 256);
     s.runTime(500);
+    s.TestClose(3, 65, 80, 2);
+    s.runTime(100);
 
 if __name__ == '__main__':
     main()

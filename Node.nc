@@ -577,6 +577,25 @@ implementation{
 					dbg(TRANSPORT_CHANNEL, "Recieved dataAck from %d!\n", myMsg->src);
 					recieveAck = TRUE;
 				}
+				if (temp->flag == 6 && tempAddr.port == temp2.src) {
+					while (!call Sockets.isEmpty()) {
+                				change = call Sockets.front();
+                				call Sockets.popfront();
+                				if (change.fd == i && !found) {
+                       					change.state = CLOSED;
+                       					found = TRUE;
+                       					call TempSockets.pushfront(change);
+                				}
+               					else {
+                       					call TempSockets.pushfront(change);
+                				}
+        				}
+        				while (!call TempSockets.isEmpty() ) {
+						call Sockets.pushfront(call TempSockets.front());
+						call TempSockets.popfront();
+                        		}
+                        		dbg(TRANSPORT_CHANNEL, "Closed.\n");
+				} 
 			}
 			else {
 				//uint16_t y,SEND;
@@ -698,6 +717,56 @@ implementation{
         			//dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
 			}
 		}
+	}
+
+	event void CommandHandler.testClose(uint16_t dest, uint16_t sourcePort, uint16_t destPort) {
+		pack fin;
+		bool sent;
+		socket_store_t temp, temp2;
+		uint16_t next;
+		uint16_t i;
+		LinkState destination;
+		fin.dest = dest;
+		fin.src = TOS_NODE_ID;
+		//dbg(TRANSPORT_CHANNEL, "TOS_NODE_ID = %d\n", TOS_NODE_ID);
+		fin.seq = 1;
+		fin.TTL = MAX_TTL;
+		fin.protocol = 4;
+		temp = call Sockets.get(fd);
+		temp.state = CLOSED;
+		temp.flag = 6;
+		temp.dest.port = dest;
+		temp.dest.addr = destPort;
+		
+		while(!call Sockets.isEmpty())
+		{
+			temp2 = call Sockets.front();
+			if(temp.fd == temp2.fd)
+			{
+				call TempSockets.pushfront(temp);
+			}
+			else
+			{
+				call TempSockets.pushfront(temp2);
+			}
+			call Sockets.popfront();
+		}
+		while(!call TempSockets.isEmpty())
+		{
+			call Sockets.pushfront(call TempSockets.front());
+			call TempSockets.popfront();
+		}
+
+		for (i = 0; i < call Confirmed.size(); i++) {
+			destination = call Confirmed.get(i);
+			if (fin.dest == destination.Dest) {
+				next = destination.Next;
+				sent = TRUE;
+			}
+		}
+		
+		call Sender.send(fin, next);
+		dbg(TRANSPORT_CHANNEL, "Closed.\n");
 	}
 
    event void CommandHandler.setAppServer(){}
