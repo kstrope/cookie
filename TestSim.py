@@ -123,7 +123,7 @@ class TestSim:
         self.sendCMD(self.CMD_ROUTE_DUMP, destination, "routing command");
 
     def TestClient(self, source, sourcePort, destPort, dest, transfer):
-	self.sendCMD(self.CMD_TEST_CLIENT, source, "{0}{1}{2}{3}".format(chr(dest),chr(sourcePort),chr(destPort),transfer));
+	self.sendCMD(self.CMD_TEST_CLIENT, source, "{0}{1}{2}{3}".format(chr(dest),chr(sourcePort),chr(destPort),chr(transfer)));
 
     def TestServer(self, address, port):
         self.sendCMD(self.CMD_TEST_SERVER, address, chr(port)),

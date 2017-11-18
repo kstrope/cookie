@@ -17,6 +17,8 @@ implementation {
     components MainC;
     components Node;
     components new TimerMilliC() as PeriodicTimerC;
+    components new TimerMilliC() as SendTimerC;
+    components new TimerMilliC() as RecieveTimerC;
     components new AMReceiverC(AM_PACK) as GeneralReceive;
     
     components TransportC;
@@ -72,6 +74,8 @@ implementation {
     Node.Random -> Random;
 
     Node.PeriodicTimer -> PeriodicTimerC;
+    Node.SendTimer -> SendTimerC;
+    Node.RecieveTimer -> RecieveTimerC;
 
     components LocalTimeMilliC;
     Node.LocalTime -> LocalTimeMilliC;

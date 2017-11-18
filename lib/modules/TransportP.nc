@@ -326,6 +326,8 @@ implementation {
     */
    command error_t Transport.connect(socket_t fd, socket_addr_t * addr) {
 		pack syn;
+		error_t success;
+		bool sent;
 		socket_store_t temp;
 		uint16_t next;
 		uint16_t i;
@@ -345,10 +347,17 @@ implementation {
 		
 		for (i = 0; i < call Confirmed.size(); i++) {
 			destination = call Confirmed.get(i);
-			if (syn.dest == destination.Dest)
+			if (syn.dest == destination.Dest) {
 				next = destination.Next;
+				sent = TRUE;
+			}
 		}
+		
 		call Sender.send(syn, next);
+		if (sent == TRUE)
+			return success = SUCCESS;
+		else
+			return success = FAIL;
 	}
 
    /**

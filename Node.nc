@@ -38,6 +38,9 @@ module Node{
    uses interface List<pack> as MarkedPackets;
    //timer to use to fire packets
    uses interface Timer<TMilli> as PeriodicTimer;
+   //timers for clients/servers
+   uses interface Timer<TMilli> as SendTimer;
+   uses interface Timer<TMilli> as RecieveTimer;
    //random number used for timer to make sure it's spaced
    uses interface Random as Random;
    //list of neighboring nodes as seen by current node
@@ -77,9 +80,14 @@ implementation{
    uint16_t seqCounter = 0;
    uint16_t accessCounter = 0;
    uint32_t difference = 0;
-   uint16_t algopush = 0;
-   uint16_t sendTime = 0;
-   uint16_t recieveTime = 0;
+   uint32_t algopush = 0;
+   uint32_t sendTime = 0;
+   uint32_t recieveTime = 0;
+   uint32_t attemptTime = 4294967295;
+   uint32_t RTT = 0;
+   bool recieveAck = FALSE;
+   socket_t fd;
+   uint16_t globalTransfer = 0;
    // Prototypes
    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t Protocol, uint16_t seq, uint8_t *payload, uint8_t length);
    //puts a packet into the list at the top
@@ -131,6 +139,47 @@ implementation{
 	}
 	if (accessCounter > 1 && accessCounter % 20 == 0 && accessCounter < 61)
 		algorithm();
+   }
+
+   event void RecieveTimer.fired() {
+	socket_store_t temp;
+	uint16_t num;
+	uint16_t i;
+	uint16_t at;
+	bool found;
+	dbg(TRANSPORT_CHANNEL, "RecieveTimer fired for this node!\n");
+	for(i = 0; i < call Sockets.size(); i++)
+	{
+        	temp = call Sockets.get(i);
+        	if(temp.fd == fd && found == FALSE && temp.state == ESTABLISHED)
+        	{
+                	found = TRUE;
+                	at = i;
+        	}
+	}
+	temp = call Sockets.get(at);
+	num = call Transport.read(temp.fd, 0, temp.lastWritten);
+   }
+
+   event void SendTimer.fired() {
+	socket_store_t temp;
+	uint16_t num;
+	uint16_t i;
+	uint16_t at;
+	bool found;
+	dbg(TRANSPORT_CHANNEL, "SendTimer fired for this node!\n");
+	for(i = 0; i < call Sockets.size(); i++)
+	{
+		temp = call Sockets.get(i);
+		if(temp.fd == fd && found == FALSE && temp.state == ESTABLISHED)
+		{
+			found = TRUE;
+			at = i;
+		}
+	}
+	temp = call Sockets.get(at);
+	if (temp.lastWritten == 0)
+		globalTransfer = globalTransfer - call Transport.write(fd, 0, globalTransfer);
    }
 
 
@@ -348,13 +397,14 @@ implementation{
 				uint16_t i;
 				uint16_t j;
 				uint16_t RTT1;
+				uint16_t buffLen;
 				bool found;
  				LinkState destination;
  				uint16_t next;
- 				pack SynAck;
+ 				pack packet;
 				socket_store_t* temp;
 				socket_store_t temp2;
-				socket_store_t SynAckTemp;
+				socket_store_t packetTemp;
 				socket_store_t change;
 				socket_addr_t tempAddr;
  				temp = myMsg->payload;
@@ -364,21 +414,21 @@ implementation{
 			         	temp2 = call Sockets.get(i);
 			         	if (temp->flag == 1 && tempAddr.port == temp2.src && temp2.state == LISTEN && tempAddr.addr == TOS_NODE_ID) {
                  			dbg(TRANSPORT_CHANNEL, "Syn packet recieved into port %d\n", temp2.src);
-                 			SynAck.dest = myMsg->src;
-                 			SynAck.src = TOS_NODE_ID;
-                 			SynAck.seq = myMsg->seq + 1;
-                 			SynAck.TTL = myMsg->TTL;
-                 			SynAck.protocol = 4;
-                 			SynAckTemp = call Sockets.get(i);
-                 			SynAckTemp.flag = 2;
-                 			SynAckTemp.dest.port = temp->src;
-                 			SynAckTemp.dest.addr = myMsg->src;
+                 			packet.dest = myMsg->src;
+                 			packet.src = TOS_NODE_ID;
+                 			packet.seq = myMsg->seq + 1;
+                 			packet.TTL = myMsg->TTL;
+                 			packet.protocol = 4;
+                 			packetTemp = call Sockets.get(i);
+                 			packetTemp.flag = 2;
+                 			packetTemp.dest.port = temp->src;
+                 			packetTemp.dest.addr = myMsg->src;
 
-                 			memcpy(SynAck.payload, &SynAckTemp, (uint8_t) sizeof(SynAckTemp));
+                 			memcpy(packet.payload, &packetTemp, (uint8_t) sizeof(packetTemp));
 
                  			for (j = 0; j < call Confirmed.size(); j++) {
                          			destination = call Confirmed.get(j);
-                         			if (SynAck.dest == destination.Dest)
+                         			if (packet.dest == destination.Dest)
                                  			next = destination.Next;
                  			}
                 			 while (!call Sockets.isEmpty()) {
@@ -397,27 +447,27 @@ implementation{
                          			call Sockets.pushfront(call TempSockets.front());
                          			call TempSockets.popfront();
                  			}
-                 			call Sender.send(SynAck, next);
+                 			call Sender.send(packet, next);
          			}
          			if (temp->flag == 2 && tempAddr.port == temp2.src) {
                 			recieveTime = call LocalTime.get();
-				        RTT1 = recieveTime - sendTime;
-        				dbg(TRANSPORT_CHANNEL, "SynAck packet recived into port %d, send = %d, recieve = %d, RTT = %d\n", temp2.src,  sendTime, recieveTime, RTT1);
-        				SynAck.dest = myMsg->src;
-        				SynAck.src = TOS_NODE_ID;
-        				SynAck.seq = myMsg->seq + 1;
-        				SynAck.TTL = myMsg->TTL;
-        				SynAck.protocol = 4;
-        				SynAckTemp = call Sockets.get(i);
-       					SynAckTemp.flag = 3;
-        				SynAckTemp.dest.port = temp->src;
-        				SynAckTemp.dest.addr = myMsg->src;
+				        RTT = recieveTime - sendTime;
+        				dbg(TRANSPORT_CHANNEL, "SynAck packet recived into port %d, send = %d, recieve = %d, RTT = %d\n", temp2.src,  sendTime, recieveTime, RTT);
+        				packet.dest = myMsg->src;
+        				packet.src = TOS_NODE_ID;
+        				packet.seq = myMsg->seq + 1;
+        				packet.TTL = myMsg->TTL;
+        				packet.protocol = 4;
+        				packetTemp = call Sockets.get(i);
+       					packetTemp.flag = 3;
+        				packetTemp.dest.port = temp->src;
+        				packetTemp.dest.addr = myMsg->src;
 
-        				memcpy(SynAck.payload, &SynAckTemp, (uint8_t) sizeof(SynAckTemp));
+        				memcpy(packet.payload, &packetTemp, (uint8_t) sizeof(packetTemp));
 
          				for (j = 0; j < call Confirmed.size(); j++) {
                  				destination = call Confirmed.get(j);
-                 				if (SynAck.dest == destination.Dest)
+                 				if (packet.dest == destination.Dest)
                          				next = destination.Next;
                 				}
         				while (!call Sockets.isEmpty()) {
@@ -425,7 +475,6 @@ implementation{
                 				call Sockets.popfront();
                  				if (change.fd == i && !found) {
                         				change.state = ESTABLISHED;
-                        				change.RTT = RTT1;
                         				found = TRUE;
                         				call TempSockets.pushfront(change);
                 				}
@@ -437,16 +486,16 @@ implementation{
                 				call Sockets.pushfront(call TempSockets.front());
                 				call TempSockets.popfront();
         				}
-        				call Sender.send(SynAck, next);
+        				call Sender.send(packet, next);
 				}
 				if (temp->flag == 3 && tempAddr.port == temp2.src) {
         				while (!call Sockets.isEmpty()) {
                 				change = call Sockets.front();
                 				call Sockets.popfront();
                 				if (change.fd == i && !found) {
-                       				change.state = ESTABLISHED;
-                       				found = TRUE;
-                       				call TempSockets.pushfront(change);
+                       					change.state = ESTABLISHED;
+                       					found = TRUE;
+                       					call TempSockets.pushfront(change);
                 				}
                					else {
                        					call TempSockets.pushfront(change);
@@ -456,8 +505,53 @@ implementation{
 						call Sockets.pushfront(call TempSockets.front());
 						call TempSockets.popfront();
                         		}
-                        		dbg(TRANSPORT_CHANNEL, "Ack packet recieved into port %d\n", temp2.src);
+					attemptTime = call LocalTime.get();
+                        		dbg(TRANSPORT_CHANNEL, "Ack1 packet recieved into port %d with RTT %d\n", temp2.src, RTT);
               				}
+				}
+				if (temp->flag == 4 && tempAddr.port == temp2.src && temp->state == ESTABLISHED && temp2.state == ESTABLISHED) {
+					buffLen = temp->lastWritten;
+					dbg(TRANSPORT_CHANNEL, "Recievced data from %d!\n", myMsg->src); 
+					call Transport.read(temp->fd, temp->sendBuff, buffLen);
+					packet.dest = myMsg->src;
+					packet.src = TOS_NODE_ID;
+					packet.seq = myMsg->seq + 1;
+					packet.TTL = myMsg->TTL;
+					packet.protocol = 4;
+					packetTemp = call Sockets.get(i);
+					packetTemp.flag = 5;
+					packetTemp.dest.port = temp->src;
+					packetTemp.dest.addr = myMsg->src;
+					packetTemp.nextExpected = buffLen + 1;
+					
+					memcpy(packet.payload, &packetTemp, (uint8_t) sizeof(packetTemp));
+
+					for (j = 0; j < call Confirmed.size(); j++) {
+        					destination = call Confirmed.get(j);
+        					if (packet.dest == destination.Dest)
+                					next = destination.Next;
+        					}
+					while (!call Sockets.isEmpty()) {
+        					change = call Sockets.front();
+        					call Sockets.popfront();
+        					if (change.fd == i && !found) {
+							change.lastAck = buffLen + 1;
+                					found = TRUE;
+                					call TempSockets.pushfront(change);
+        					}
+        					else {
+        					        call TempSockets.pushfront(change);
+        					}
+					}
+					while (!call TempSockets.isEmpty() ) {
+        					call Sockets.pushfront(call TempSockets.front());
+        					call TempSockets.popfront();
+					}
+					call Sender.send(packet, next);
+				}
+				if (temp->flag == 5 && tempAddr.port == temp2.src && temp->state == ESTABLISHED && temp2.state == ESTABLISHED) {
+					dbg(TRANSPORT_CHANNEL, "Recieved dataAck from %d!\n", myMsg->src);
+					recieveAck = TRUE;
 				}
 			}
 			else {
@@ -545,18 +639,16 @@ implementation{
 
 	event void CommandHandler.setTestServer(uint16_t port){
 		socket_addr_t address;
-		socket_t fd = call Transport.socket();
+		fd = call Transport.socket();
 		address.addr = TOS_NODE_ID;
 		address.port = port;
 		if (call Transport.bind(fd, &address) == SUCCESS) {
 			//dbg(TRANSPORT_CHANNEL, "yay\n");
+			if (call Transport.listen(fd) == SUCCESS) {
+        			//dbg(TRANSPORT_CHANNEL, "listening...\n");
+        			call RecieveTimer.startOneShot(attemptTime + 2 * RTT);
+			}
 		}
-		if (call Transport.listen(fd) == SUCCESS) {
-			//dbg(TRANSPORT_CHANNEL, "listening...\n");
-		}
-	
-		//dbg(TRANSPORT_CHANNEL, "Node %d set as server with port %d\n", TOS_NODE_ID, port);
-		//dbg(TRANSPORT_CHANNEL, "fd is %d\n", fd);
 	}
 
 	event void CommandHandler.setTestClient(uint16_t dest, uint16_t sourcePort, uint16_t destPort, uint16_t transfer){
@@ -569,53 +661,21 @@ implementation{
 		socket_store_t synSocket;
 		socket_addr_t address;
 		socket_addr_t serverAddress;
-		socket_t fd = call Transport.socket();
+		fd = call Transport.socket();
 		address.addr = TOS_NODE_ID;
 		address.port = sourcePort;
 		serverAddress.addr = dest;
 		serverAddress.port = destPort;
+		globalTransfer = transfer;
 
 		if (call Transport.bind(fd, &address) == SUCCESS) {
-			//dbg(TRANSPORT_CHANNEL, "client yay\n");
+			sendTime = call LocalTime.get();
+			//send SYN packet
+			if (call Transport.connect(fd, &serverAddress) == SUCCESS) {
+        			call SendTimer.startPeriodic(RTT * 3);
+        			//dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
+			}
 		}
-		//send SYN packet
-		call Transport.connect(fd, &serverAddress);
-		sendTime = call LocalTime.get();
-		//dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
-
-
-		for(i = 0; i < 16; i++)
-		{
-		        buff[i] = i+1;
-		}
-
-		for(i = 0; i < 15; i++)
-		{
-			buff3[i] = i+1;
-		}
-
-		test = call Transport.write(fd, buff, 16);
-
-		printf("test is: %d\n", test);
-
-		printf("testing again...\n");
-
-		test = call Transport.write(fd, buff3, 15);
-
-		printf("test is: %d\n", test);
-
-		printf("testing again...\n");
-
-		for(i = 0; i < 113; i++)
-		{
-			buff2[i] = i+1;
-		}
-
-		test = call Transport.write(fd, buff2, 113);
-
-		printf("test is: %d\n", test);
-
-		
 	}
 
    event void CommandHandler.setAppServer(){}
