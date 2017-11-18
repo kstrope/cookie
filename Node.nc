@@ -411,6 +411,7 @@ implementation{
 			else if (myMsg->dest == TOS_NODE_ID && myMsg->protocol == PROTOCOL_TCP) {
 				uint16_t i;
 				uint16_t j;
+				uint16_t* arr;
 				uint16_t RTT1;
 				uint16_t buffLen;
 				bool found;
@@ -528,7 +529,8 @@ implementation{
               				}
 				}
 				if (temp->flag == 4 /*&& tempAddr.port == temp2.src && temp->state == ESTABLISHED && temp2.state == ESTABLISHED*/) {
-					buffLen = temp->lastWritten;
+					arr = myMsg->payload;
+					buffLen = myMsg->seq;
 					dbg(TRANSPORT_CHANNEL, "Recievced data from %d!\n", myMsg->src); 
 					call Transport.read(temp->fd, temp->sendBuff, buffLen);
 					packet.dest = myMsg->src;

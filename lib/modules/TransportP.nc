@@ -23,12 +23,22 @@ implementation {
     */
    command socket_t Transport.socket() {
 	socket_t fd;
+	uint8_t i;
 	socket_store_t insert;
 	if (call Sockets.size() < MAX_NUM_OF_SOCKETS) {
 		insert.fd = call Sockets.size();
 		insert.effectiveWindow = 128;
 		insert.lastWritten = 0;
+		insert.nextExpected = 0;
+		insert.lastSent = 0;
+		insert.lastRcvd = 0;
+		insert.lastRead = 0;
 		fd = call Sockets.size();
+		for(i = 0; i < 128; i++)
+		{
+			insert.sendBuff[i] = 255;
+			insert.rcvdBuff[i] = 255;
+		}
 		call Sockets.pushback(insert);
 	}
 	else {
@@ -142,6 +152,7 @@ implementation {
 		LinkState destination;
 		pack write;
                 uint16_t sockLen;
+		uint8_t arr[2];
                 uint16_t i,j,at,buffcount,next;
                 uint8_t buffsize, buffable, buffto;
                 bool found = FALSE;
@@ -184,10 +195,12 @@ implementation {
                         }
 			write.dest = temp.dest.addr;
 			write.TTL = MAX_TTL;
-			printf("write.dest is %d\n", write.dest);
+			//printf("write.dest is %d\n", write.dest);
                         temp.lastWritten = i;
+			printf("lastwritten is %d\n", temp.lastWritten);
                         temp.lastSent = j;
 			temp.flag = 4;
+			write.seq = i;
 			memcpy(write.payload, &temp, (uint8_t) sizeof(temp));
 
 			for (i = 0; i < call Confirmed.size(); i++)
@@ -195,11 +208,10 @@ implementation {
 				destination = call Confirmed.get(i);
 				if (write.dest == destination.Dest)
 				{
-					printf("found dest\n");
+					//printf("found dest\n");
 					next = destination.Next;
 				}
 			}			
-			call Sender.send(write, next);
 
                         while(!call Sockets.isEmpty())
                         {
@@ -219,7 +231,7 @@ implementation {
                                 call Sockets.pushfront(call TempSockets.front());
                                 call TempSockets.popfront();
                         }
-			printf("sending tooooo: %d\n", next);
+			//printf("sending tooooo: %d\n", next);
 			call Sender.send(write, next);
 
                         return buffcount;
@@ -287,7 +299,7 @@ implementation {
                         //do buffer things
                         temp = call Sockets.get(at);
                         buffcount = 0;
-                        buffsize = sizeof(buff);
+			printf("effectivewindow is %d\n", temp.effectiveWindow);
                         if(bufflen > temp.effectiveWindow)
                         {
                                 buffable = temp.effectiveWindow;
@@ -297,10 +309,13 @@ implementation {
                                 buffable = bufflen;
                         }
                         j = temp.nextExpected;
+			printf("buffable is %d\n", buffable);
+			j = 0;
                         for(i = 0; i < buffable; i++)
                         {
-                                temp.rcvdBuff[j] = temp.sendBuff[i];
-                                temp.sendBuff[i] = 255;
+				printf("buff is %d\n", buff[i]);
+                                temp.rcvdBuff[j] = j;
+                                //temp.sendBuff[i] = 255;
                                 j++;
                                 buffcount++;
                                 if(temp.effectiveWindow > 0)
