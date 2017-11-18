@@ -147,17 +147,9 @@ def main():
 
     s.runTime(1000);
     s.TestServer(2, 80);
-    s.runTime(50);
-    s.TestServer(2, 81);
-    s.runTime(50);
-    s.TestServer(5, 70);
-    s.runTime(50);
-    s.TestClient(3, 64, 80, 2, 8);
-    s.runTime(100);
-    s.TestClient(3, 65, 81, 2, 8);
-    s.runTime(100);
-    s.TestClient(3, 66, 70, 5, 8);
-    s.runTime(100);
+    s.runTime(500);
+    s.TestClient(3, 65, 80, 2, 8);
+    s.runTime(500);
 
 if __name__ == '__main__':
     main()

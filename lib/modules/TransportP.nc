@@ -141,10 +141,13 @@ implementation {
                 socket_store_t temp, temp2;
 		LinkState destination;
 		pack write;
-                uint16_t sockLen = call Sockets.size();
+                uint16_t sockLen;
                 uint16_t i,j,at,buffcount,next;
                 uint8_t buffsize, buffable, buffto;
                 bool found = FALSE;
+		write.src = TOS_NODE_ID;
+		write.protocol = PROTOCOL_TCP;
+		sockLen = call Sockets.size();
                 for(i = 0; i < sockLen; i++)
                 {
                         temp = call Sockets.get(i);
@@ -179,6 +182,8 @@ implementation {
                                 j++;
                                 buffcount++;
                         }
+			temp.dest.port = temp.dest.port;
+			temp.dest.addr = temp.dest.addr;
                         temp.lastWritten = i;
                         temp.lastSent = j;
 			temp.flag = 4;
@@ -191,7 +196,6 @@ implementation {
 				}
 			}			
 
-			call Sender.send(write, next);
                         while(!call Sockets.isEmpty())
                         {
                                 temp2 = call Sockets.front();
@@ -210,6 +214,8 @@ implementation {
                                 call Sockets.pushfront(call TempSockets.front());
                                 call TempSockets.popfront();
                         }
+			call Sender.send(write, next);
+
                         return buffcount;
                 }
         }
@@ -311,7 +317,7 @@ implementation {
 			for(i = 0; i < temp.lastRcvd; i++)
 			{
 				printf("%d, ", temp.rcvdBuff[i]);
-				if(i == 6)
+				if(i%6 == 0)
 				{
 					printf("\n");
 				}
