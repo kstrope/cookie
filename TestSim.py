@@ -148,7 +148,7 @@ def main():
     s.runTime(1000);
     s.TestServer(2, 80);
     s.runTime(500);
-    s.TestClient(3, 65, 80, 2, 8);
+    s.TestClient(3, 65, 80, 2, 150);
     s.runTime(500);
 
 if __name__ == '__main__':

@@ -88,7 +88,7 @@ implementation{
    bool connected = FALSE;
    bool recieveAck = FALSE;
    socket_t fd;
-   uint16_t globalTransfer = 0;
+   int16_t globalTransfer = 0;
    // Prototypes
    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t Protocol, uint16_t seq, uint8_t *payload, uint8_t length);
    //puts a packet into the list at the top
@@ -171,9 +171,10 @@ implementation{
 	uint16_t num;
 	uint16_t i;
 	uint16_t at;
+	uint16_t size;
 	bool found;
 	found = FALSE;
-	dbg(TRANSPORT_CHANNEL, "SendTimer fired for this node!\n");
+	//dbg(TRANSPORT_CHANNEL, "SendTimer fired for this node!\n");
 	//printf("size is %d\n", call Sockets.size());
 	for(i = 0; i < call Sockets.size(); i++)
 	{
@@ -193,7 +194,10 @@ implementation{
 	if (/*temp.lastWritten == 0 && */found)
 	{
 		//printf("even here\n");
-		globalTransfer = globalTransfer - call Transport.write(fd, 0, globalTransfer);
+		while (globalTransfer > 0) {
+			size = call Transport.write(fd, 0, globalTransfer);
+			globalTransfer = globalTransfer - size;
+		}
 	}
    }
 
@@ -569,7 +573,7 @@ implementation{
 					}
 					call Sender.send(packet, next);
 				}
-				if (temp->flag == 5 && tempAddr.port == temp2.src && temp->state == ESTABLISHED && temp2.state == ESTABLISHED) {
+				if (temp->flag == 5 /*&& tempAddr.port == temp2.src && temp->state == ESTABLISHED && temp2.state == ESTABLISHED*/) {
 					dbg(TRANSPORT_CHANNEL, "Recieved dataAck from %d!\n", myMsg->src);
 					recieveAck = TRUE;
 				}

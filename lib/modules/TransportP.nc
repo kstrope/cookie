@@ -186,7 +186,7 @@ implementation {
                         buffcount = 0;
                         buffto = temp.lastWritten + buffable;
                         j = temp.lastSent;
-                        for(i = temp.lastWritten; i < buffto; i++)
+                        for(i = 0; i < buffto; i++)
                         {
                                 //temp.lastWritten++;
                                 temp.sendBuff[i] = j;
@@ -197,7 +197,7 @@ implementation {
 			write.TTL = MAX_TTL;
 			//printf("write.dest is %d\n", write.dest);
                         temp.lastWritten = i;
-			printf("lastwritten is %d\n", temp.lastWritten);
+			//printf("lastwritten is %d\n", temp.lastWritten);
                         temp.lastSent = j;
 			temp.flag = 4;
 			write.seq = i;
@@ -212,7 +212,7 @@ implementation {
 					next = destination.Next;
 				}
 			}			
-
+			temp.lastWritten = 0;
                         while(!call Sockets.isEmpty())
                         {
                                 temp2 = call Sockets.front();
@@ -299,7 +299,7 @@ implementation {
                         //do buffer things
                         temp = call Sockets.get(at);
                         buffcount = 0;
-			printf("effectivewindow is %d\n", temp.effectiveWindow);
+			//printf("effectivewindow is %d\n", temp.effectiveWindow);
                         if(bufflen > temp.effectiveWindow)
                         {
                                 buffable = temp.effectiveWindow;
@@ -309,11 +309,11 @@ implementation {
                                 buffable = bufflen;
                         }
                         j = temp.nextExpected;
-			printf("buffable is %d\n", buffable);
+			//printf("buffable is %d\n", buffable);
 			j = 0;
                         for(i = 0; i < buffable; i++)
                         {
-				printf("buff is %d\n", buff[i]);
+				//printf("buff is %d\n", buff[i]);
                                 temp.rcvdBuff[j] = j;
                                 //temp.sendBuff[i] = 255;
                                 j++;
@@ -334,7 +334,7 @@ implementation {
                                 temp.nextExpected = j+1;
                         }
 
-			dbg(TRANSPORT_CHANNEL, "printing out rcvdBuff\n");
+			//dbg(TRANSPORT_CHANNEL, "printing out rcvdBuff\n");
 			for(i = 0; i < temp.lastRcvd; i++)
 			{
 				printf("%d, ", temp.rcvdBuff[i]);
@@ -343,6 +343,7 @@ implementation {
 					printf("\n");
 				}
 				temp.rcvdBuff[i] = 255;
+				temp.effectiveWindow++;
 			}
 			printf("\n");
 
