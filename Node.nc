@@ -68,6 +68,7 @@ module Node{
 
    uses interface CommandHandler;
    uses interface Transport;
+   uses interface LocalTime<TMilli>;
 
 }
 
@@ -77,6 +78,8 @@ implementation{
    uint16_t accessCounter = 0;
    uint32_t difference = 0;
    uint16_t algopush = 0;
+   uint16_t sendTime = 0;
+   uint16_t recieveTime = 0;
    // Prototypes
    void makePack(pack *Package, uint16_t src, uint16_t dest, uint16_t TTL, uint16_t Protocol, uint16_t seq, uint8_t *payload, uint8_t length);
    //puts a packet into the list at the top
@@ -342,10 +345,10 @@ implementation{
 				dbg(FLOODING_CHANNEL, "Recieved a reply it was delivered from %d!\n", myMsg->src);
 			}
 			else if (myMsg->dest == TOS_NODE_ID && myMsg->protocol == PROTOCOL_TCP) {
-				 uint16_t i;
-				 uint16_t j;
-				 uint16_t RTT1;
-				 bool found;
+				uint16_t i;
+				uint16_t j;
+				uint16_t RTT1;
+				bool found;
  				LinkState destination;
  				uint16_t next;
  				pack SynAck;
@@ -397,9 +400,9 @@ implementation{
                  			call Sender.send(SynAck, next);
          			}
          			if (temp->flag == 2 && tempAddr.port == temp2.src) {
-                			 recieveTime = call LocalTime.get();
-				         RTT1 = recieveTime - sendTime;
-        				dbg(TRANSPORT_CHANNEL, "SynAck packet recived into port %d, send = %d, recieve = %d, RTT = %d\n", sendTime, recieveTime, temp2.src, RTT1);
+                			recieveTime = call LocalTime.get();
+				        RTT1 = recieveTime - sendTime;
+        				dbg(TRANSPORT_CHANNEL, "SynAck packet recived into port %d, send = %d, recieve = %d, RTT = %d\n", temp2.src,  sendTime, recieveTime, RTT1);
         				SynAck.dest = myMsg->src;
         				SynAck.src = TOS_NODE_ID;
         				SynAck.seq = myMsg->seq + 1;
@@ -434,17 +437,14 @@ implementation{
                 				call Sockets.pushfront(call TempSockets.front());
                 				call TempSockets.popfront();
         				}
-        				sendTime2 = call LocalTime.get();
         				call Sender.send(SynAck, next);
 				}
 				if (temp->flag == 3 && tempAddr.port == temp2.src) {
-        				recieveTime2 = call LocalTime.get();
         				while (!call Sockets.isEmpty()) {
                 				change = call Sockets.front();
                 				call Sockets.popfront();
                 				if (change.fd == i && !found) {
                        				change.state = ESTABLISHED;
-                       				RTTtemp = change.RTT;
                        				found = TRUE;
                        				call TempSockets.pushfront(change);
                 				}
@@ -456,32 +456,9 @@ implementation{
 						call Sockets.pushfront(call TempSockets.front());
 						call TempSockets.popfront();
                         		}
-                       			sendTime2 = call LocalTime.get();
-                        		call Sender.send(SynAck, next);
-                		}
-               			if (temp->flag == 3 && tempAddr.port == temp2.src) {
-                        		recieveTime2 = call LocalTime.get();
-                        		while (!call Sockets.isEmpty()) {
-                                		change = call Sockets.front();
-                                		call Sockets.popfront();
-                                		if (change.fd == i && !found) {
-                                       			change.state = ESTABLISHED;
-                                       			RTTtemp = change.RTT;
-                                       			found = TRUE;
-                                       			call TempSockets.pushfront(change);
-                                	}
-                                else {
-                                       call TempSockets.pushfront(change);
-                                }
-                        }
-                        while (!call TempSockets.isEmpty() ) {
-                                call Sockets.pushfront(call TempSockets.front());
-                                call TempSockets.popfront();
-                        }
-                        dbg(TRANSPORT_CHANNEL, "Ack packet recieved into port %d\n", temp2.src);
-                			}
-        			}
-
+                        		dbg(TRANSPORT_CHANNEL, "Ack packet recieved into port %d\n", temp2.src);
+              				}
+				}
 			}
 			else {
 				//uint16_t y,SEND;
@@ -572,14 +549,14 @@ implementation{
 		address.addr = TOS_NODE_ID;
 		address.port = port;
 		if (call Transport.bind(fd, &address) == SUCCESS) {
-			dbg(TRANSPORT_CHANNEL, "yay\n");
+			//dbg(TRANSPORT_CHANNEL, "yay\n");
 		}
 		if (call Transport.listen(fd) == SUCCESS) {
-			dbg(TRANSPORT_CHANNEL, "listening...\n");
+			//dbg(TRANSPORT_CHANNEL, "listening...\n");
 		}
 	
-		dbg(TRANSPORT_CHANNEL, "Node %d set as server with port %d\n", TOS_NODE_ID, port);
-		dbg(TRANSPORT_CHANNEL, "fd is %d\n", fd);
+		//dbg(TRANSPORT_CHANNEL, "Node %d set as server with port %d\n", TOS_NODE_ID, port);
+		//dbg(TRANSPORT_CHANNEL, "fd is %d\n", fd);
 	}
 
 	event void CommandHandler.setTestClient(uint16_t dest, uint16_t sourcePort, uint16_t destPort, uint16_t transfer){
@@ -599,11 +576,12 @@ implementation{
 		serverAddress.port = destPort;
 
 		if (call Transport.bind(fd, &address) == SUCCESS) {
-			dbg(TRANSPORT_CHANNEL, "client yay\n");
+			//dbg(TRANSPORT_CHANNEL, "client yay\n");
 		}
 		//send SYN packet
 		call Transport.connect(fd, &serverAddress);
-		dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
+		sendTime = call LocalTime.get();
+		//dbg(TRANSPORT_CHANNEL, "Node %d set as client with source port %d, and destination %d at their port %d\n", TOS_NODE_ID, sourcePort, dest, destPort);
 
 
 		for(i = 0; i < 16; i++)

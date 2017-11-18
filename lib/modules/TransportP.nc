@@ -63,7 +63,7 @@ implementation {
 			tempAddr.addr = addr->addr;
 			temp.src = tempAddr.port;
 			found = TRUE;
-			dbg(TRANSPORT_CHANNEL, "fd found, inserting addr of node %d port %d\n", tempAddr.addr, tempAddr.port);
+			//dbg(TRANSPORT_CHANNEL, "fd found, inserting addr of node %d port %d\n", tempAddr.addr, tempAddr.port);
 			call TempSockets.pushfront(temp);
 		}
 		else {
@@ -340,6 +340,8 @@ implementation {
 		temp.flag = 1;
 		temp.dest.port = addr->port;
 		temp.dest.addr = addr->addr;
+
+		memcpy(syn.payload, &temp, (uint8_t) sizeof(temp));
 		
 		for (i = 0; i < call Confirmed.size(); i++) {
 			destination = call Confirmed.get(i);
@@ -423,7 +425,7 @@ implementation {
 				tempState = LISTEN;
 				temp.state = tempState;
 				found = TRUE;
-				dbg(TRANSPORT_CHANNEL, "fd found, changing state to %d\n", temp.state);
+				//dbg(TRANSPORT_CHANNEL, "fd found, changing state to %d\n", temp.state);
 				call TempSockets.pushfront(temp);
 			}
 			else {

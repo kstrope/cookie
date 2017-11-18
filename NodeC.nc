@@ -73,4 +73,6 @@ implementation {
 
     Node.PeriodicTimer -> PeriodicTimerC;
 
+    components LocalTimeMilliC;
+    Node.LocalTime -> LocalTimeMilliC;
 }
