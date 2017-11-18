@@ -314,7 +314,7 @@ implementation {
                         for(i = 0; i < buffable; i++)
                         {
 				//printf("buff is %d\n", buff[i]);
-                                temp.rcvdBuff[j] = j;
+                                temp.rcvdBuff[j] = j + temp.lastRcvd;
                                 //temp.sendBuff[i] = 255;
                                 j++;
                                 buffcount++;
@@ -337,15 +337,15 @@ implementation {
 			//dbg(TRANSPORT_CHANNEL, "printing out rcvdBuff\n");
 			for(i = 0; i < temp.lastRcvd; i++)
 			{
-				printf("%d, ", temp.rcvdBuff[i]);
-				if(i%6 == 0)
+				dbg(TRANSPORT_CHANNEL,"%d\n", temp.rcvdBuff[i]);
+				if(i > 0 && i%6 == 0)
 				{
-					printf("\n");
+					//printf("\n");
 				}
 				temp.rcvdBuff[i] = 255;
 				temp.effectiveWindow++;
 			}
-			printf("\n");
+			//printf("\n");
 
 			//pushing stuff
                         while(!call Sockets.isEmpty())
