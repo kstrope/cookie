@@ -15,6 +15,10 @@ class TestSim:
     CMD_TEST_CLIENT = 4
     CMD_TEST_SERVER = 5
     CMD_TEST_CLOSE = 7
+    CMD_HELLO = 8
+    CMD_MESSAGE = 10
+    CMD_WHISPER = 11
+    CMD_LIST = 12
     # CHANNELS - see includes/channels.h
     COMMAND_CHANNEL="command";
     GENERAL_CHANNEL="general";
@@ -135,6 +139,18 @@ class TestSim:
         print 'Adding Channel', channelName;
         self.t.addChannel(channelName, out);
 
+    def hello(self, client, clientPort, username):
+	self.sendCMD(self.CMD_HELLO, client, "{0}{1}".format(chr(clientPort), username));
+
+    def message(self, client, message):
+	self.sendCMD(self.CMD_MESSAGE, client, message);
+
+    def whisper(self, client, recepient, message):
+	self.sendCMD(self.CMD_WHISPER, client, "{0}{1}".format(chr(recepient), message));
+
+    def list(self, client):
+	self.sendCMD(self.CMD_LIST, client, "list command");
+
 def main():
     s = TestSim();
     s.runTime(10);
@@ -149,27 +165,13 @@ def main():
     s.addChannel(s.TRANSPORT_CHANNEL);
 
     s.runTime(1000);
-    s.TestServer(2, 80);
+    s.hello(2, 41, "testName\r\n");
     s.runTime(50);
-    s.TestServer(9, 90);
+    s.message(2, "testMessage\r\n");
     s.runTime(50);
-   # s.TestServer(9, 91);
-   # s.runTime(50);
-    s.TestClient(3, 65, 80, 2, 255);
+    s.whisper(2, 3, "testWhisper\r\n");
     s.runTime(50);
-    s.TestClient(1, 50, 90, 9, 128);
-    s.runTime(50);
-   # s.TestClient(2, 30, 91, 9, 245);
-   # s.runTime(50);
-    s.TestClose(3, 65, 80, 2);
-    s.runTime(50);
-    s.TestClose(1, 50, 90, 9);
-    s.runTime(50);
-   # s.TestClose(2, 30, 91, 9);
-   # s.runTime(50);
-    s.TestClient(3, 65, 80, 2, 255);
-    s.runTime(50);
-    s.TestClient(1, 50, 90, 9, 128);
+    s.list(2);
     s.runTime(50);
 
 if __name__ == '__main__':
